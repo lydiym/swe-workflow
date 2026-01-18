@@ -44,7 +44,6 @@ class TextualTokenTracker:
     def __init__(self, update_callback: callable, hide_callback: callable | None = None) -> None:
         """Initialize with callbacks to update the display."""
         self._update_callback = update_callback
-        self._hide_callback = hide_callback
         self.current_context = 0
 
     def add(self, total_tokens: int, _output_tokens: int = 0) -> None:
@@ -62,13 +61,8 @@ class TextualTokenTracker:
         self.current_context = 0
         self._update_callback(0)
 
-    def hide(self) -> None:
-        """Hide the token display (e.g., during streaming)."""
-        if self._hide_callback:
-            self._hide_callback()
-
     def show(self) -> None:
-        """Show the token display with current value (e.g., after interrupt)."""
+        """Show the token display with current value."""
         self._update_callback(self.current_context)
 
 
@@ -206,8 +200,7 @@ class TUI(App):
             thread_id=self._lc_thread_id,
         )
 
-        # Create token tracker that updates status bar
-        self._token_tracker = TextualTokenTracker(self._update_tokens, self._hide_tokens)
+        self._token_tracker = TextualTokenTracker(self._update_tokens)
 
         # Create UI adapter if agent is provided
         if self._agent:
@@ -240,10 +233,6 @@ class TUI(App):
         if self._status_bar:
             self._status_bar.set_tokens(count)
 
-    def _hide_tokens(self) -> None:
-        """Hide the token display during streaming."""
-        if self._status_bar:
-            self._status_bar.hide_tokens()
 
     def _scroll_chat_to_bottom(self) -> None:
         """Scroll the chat area to the bottom.

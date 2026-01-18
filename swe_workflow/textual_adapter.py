@@ -172,9 +172,10 @@ async def execute_task_textual(
     # Update status to show thinking
     adapter._update_status("Agent is thinking...")
 
-    # Hide token display during streaming (will be shown with accurate count at end)
+    # Token display remains visible during streaming
     if adapter._token_tracker:
-        adapter._token_tracker.hide()
+        # Update token display if available, otherwise keep showing current value
+        adapter._token_tracker.show()
 
     file_op_tracker = FileOpTracker(assistant_id=assistant_id, backend=backend)
     displayed_tool_ids: set[str] = set()
