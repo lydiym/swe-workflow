@@ -177,9 +177,7 @@ def show_help() -> None:
     console.print(
         "  swe-workflow reset --agent AGENT --target SOURCE Reset agent to copy of another agent"
     )
-    console.print(
-        "  deepswe-workflowagents help                                Show this help message"
-    )
+    console.print("  swe-workflow help                                Show this help message")
     console.print("  swe-workflow --version                           Show swe-workflow version")
     console.print()
 
