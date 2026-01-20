@@ -10,11 +10,14 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from langchain_core.messages import AIMessage, BaseMessage, ChatMessage, human
+from langchain_core.runnables import RunnableConfig
 from textual.app import App
 from textual.binding import Binding, BindingType
 from textual.containers import Container, VerticalScroll
 from textual.css.query import NoMatches
 from textual.events import Click, MouseUp  # noqa: TC002 - used in type annotation
+from textual.widget import Widget
 from textual.widgets import Static  # noqa: TC002 - used at runtime
 
 from .clipboard import copy_selection_to_clipboard
@@ -106,9 +109,7 @@ class TUI(App):
         Binding("ctrl+c", "quit_or_interrupt", "Quit/Interrupt", show=False),
         Binding("ctrl+d", "quit_app", "Quit", show=False, priority=True),
         Binding("ctrl+t", "toggle_auto_approve", "Toggle Auto-Approve", show=False),
-        Binding(
-            "shift+tab", "toggle_auto_approve", "Toggle Auto-Approve", show=False, priority=True
-        ),
+        Binding("shift+tab", "toggle_auto_approve", "Toggle Auto-Approve", show=False, priority=True),
         Binding("ctrl+o", "toggle_tool_output", "Toggle Tool Output", show=False),
         # Approval menu keys (handled at App level for reliability)
         Binding("up", "approval_up", "Up", show=False),
@@ -169,6 +170,7 @@ class TUI(App):
         self._agent_running = False
         self._loading_widget: LoadingWidget | None = None
         self._token_tracker: TextualTokenTracker | None = None
+        self._history_loaded = False  # Track if history has been loaded
 
     def compose(self) -> ComposeResult:
         """Compose the application layout."""
@@ -216,12 +218,163 @@ class TUI(App):
         # Focus the input (autocomplete is now built into ChatInput)
         self._chat_input.focus_input()
 
+        # Load conversation history if resuming a thread
+        if self._agent and self._lc_thread_id and not self._history_loaded:
+            await self._load_conversation_history()
+            self._history_loaded = True
+            # Ensure the chat scrolls to show all history
+            self._scroll_chat_to_bottom()
+
         # Auto-submit initial prompt if provided
         if self._initial_prompt and self._initial_prompt.strip():
             # Use call_after_refresh to ensure UI is fully mounted before submitting
-            self.call_after_refresh(
-                lambda: asyncio.create_task(self._handle_user_message(self._initial_prompt))
-            )
+            self.call_after_refresh(lambda: asyncio.create_task(self._handle_user_message(self._initial_prompt)))
+
+    async def _load_conversation_history(self) -> None:
+        """Load and display conversation history when resuming a thread."""
+        if not self._agent or not self._lc_thread_id:
+            return
+
+        config = RunnableConfig(configurable={"thread_id": self._lc_thread_id})
+
+        try:
+            # Get the current state from the agent
+            state = await self._agent.aget_state(config)
+
+            if hasattr(state, "values") and "messages" in state.values:
+                messages = state.values["messages"]
+
+                # Clear any existing welcome banner
+                try:
+                    welcome_banner = self.query_one("#welcome-banner")
+                    await welcome_banner.remove()
+                except Exception:
+                    pass  # Banner might not exist or already be removed
+
+                # First pass: collect all messages and map tool call IDs to their original calls
+                all_messages = list(messages)
+                tool_call_args_map = {}  # Maps tool_call_id to original arguments
+
+                # Second pass: process all messages and create widgets
+                for msg in all_messages:
+                    # Determine message type and create appropriate widget
+                    msg_class_name = type(msg).__name__.lower()
+                    content = self._extract_message_content(msg)
+                    if msg.type == "human" or "human" in msg_class_name or "user" in msg_class_name:
+                        message_widget = UserMessage(content)
+                    elif msg.type == "ai" or "ai" in msg_class_name or "assistant" in msg_class_name:
+                        message_widget = AssistantMessage(content)
+                    elif msg.type == "tool" or "tool" in msg_class_name:
+                        # For tool messages, create ToolCallMessage with appropriate status
+                        # In LangGraph/LangChain, tool messages can be either:
+                        # 1. ToolMessage (results) - has tool_call_id and content (result)
+                        # 2. AIMessage with tool_calls - has tool_calls attribute
+
+                        # Determine tool name and args based on message type
+                        tool_name = "unknown"
+                        tool_args = {}
+
+                        # For ToolMessage (which represents results), try to get original tool info
+                        if hasattr(msg, "tool_call_id") and msg.tool_call_id:
+                            # This is a ToolMessage (result), get the original tool name from the tool call ID
+                            tool_name = getattr(msg, "name", "tool_result")
+                            # Get arguments from the mapped original call
+                            original_args = tool_call_args_map.get(msg.tool_call_id)
+                            if original_args:
+                                tool_args = original_args
+                            elif hasattr(msg, "tool_call") and hasattr(msg.tool_call, "args"):
+                                # Fallback: try to extract from message if no mapping found
+                                tool_args = msg.tool_call.args
+                            elif hasattr(msg, "args"):
+                                tool_args = msg.args
+                            elif hasattr(msg, "state") and isinstance(msg.state, dict) and "args" in msg.state:
+                                # Check if args are stored in state
+                                tool_args = msg.state.get("args", {})
+                            elif hasattr(msg, "state") and hasattr(msg.state, "args"):
+                                # Check if args is an attribute of state
+                                tool_args = getattr(msg.state, "args", {})
+                            else:
+                                tool_args = {}
+                        else:
+                            # This might be an AI message with tool calls
+                            tool_name = getattr(msg, "name", "tool_call")
+                            tool_args = getattr(msg, "args", {})
+
+                        # Create the tool message widget
+                        message_widget = ToolCallMessage(tool_name=tool_name, args=tool_args)
+
+                        # Since this is from historical state, any tool message should be processed
+                        # If it has a tool_call_id, it's a result (already executed)
+                        if hasattr(msg, "tool_call_id") and msg.tool_call_id:
+                            message_widget.set_success(content if content else "Tool executed successfully")
+                        elif content and "error" in content.lower():
+                            message_widget.set_error(content)
+                        elif hasattr(msg, "status") and msg.status == "error":
+                            message_widget.set_error(content if content else "Tool execution failed")
+                        else:
+                            # For historical tools, default to success since they should have already executed
+                            message_widget.set_success(content if content else "Tool executed successfully")
+                    elif msg.type == "system" or "system" in msg_class_name:
+                        # For system messages
+                        message_widget = SystemMessage(content)
+                    else:
+                        # For other message types, default to system message
+                        message_widget = SystemMessage(f"[{msg.type}] {content[:200]}")
+
+                    await self._mount_message(message_widget)
+                    # For AssistantMessage widgets, we need to call write_initial_content to display the content
+                    if isinstance(message_widget, AssistantMessage):
+                        await message_widget.write_initial_content()
+                        # For ToolCallMessage widgets, we need to handle status updates specially during history loading
+                        # The status might have already been set in the message processing above, but we need to ensure it's applied
+                        # after the widget is mounted since the DOM elements become available after mounting
+
+                # Force a refresh of the chat area to ensure all messages are displayed
+                chat_container = self.query_one("#chat", VerticalScroll)
+                chat_container.refresh()
+
+        except Exception:
+            # If there's an error loading history, just continue without it
+            pass
+
+    def _extract_message_content(self, msg: BaseMessage) -> str:
+        """Extract content from a message object, handling various formats."""
+        content = ""
+
+        # Try different ways to extract content from the message
+        if hasattr(msg, "content"):
+            if isinstance(msg.content, list):
+                # Handle content as a list of message parts
+                for part in msg.content:
+                    if isinstance(part, str):
+                        content += part
+                    elif isinstance(part, dict):
+                        # Handle dictionary content
+                        if "text" in part:
+                            content += str(part["text"])
+                        elif "content" in part:
+                            content += str(part["content"])
+                        else:
+                            content += str(part)
+                    elif hasattr(part, "text"):
+                        content += str(part.text)
+                    elif hasattr(part, "data"):
+                        content += str(part.data)
+                    else:
+                        content += str(part)
+            elif hasattr(msg.content, "__iter__") and not isinstance(msg.content, str):
+                # Handle other iterable content
+                content = "".join(str(item) for item in msg.content)
+            else:
+                # Handle simple string content
+                content = str(msg.content)
+        elif hasattr(msg, "text"):  # For some message types that use 'text' instead of 'content'
+            content = str(msg.text)
+        else:
+            # If no known content attribute, convert the whole message to string
+            content = str(msg)
+
+        return content if content else str(msg)
 
     def _update_status(self, message: str) -> None:
         """Update the status bar with a message."""
@@ -232,7 +385,6 @@ class TUI(App):
         """Update the token count in status bar."""
         if self._status_bar:
             self._status_bar.set_tokens(count)
-
 
     def _scroll_chat_to_bottom(self) -> None:
         """Scroll the chat area to the bottom.
@@ -406,9 +558,7 @@ class TUI(App):
             self.exit()
         elif cmd == "/help":
             await self._mount_message(UserMessage(command))
-            await self._mount_message(
-                SystemMessage("Commands: /quit, /clear, /tokens, /threads, /help")
-            )
+            await self._mount_message(SystemMessage("Commands: /quit, /clear, /tokens, /threads, /help"))
 
         elif cmd == "/version":
             await self._mount_message(UserMessage(command))
@@ -432,9 +582,7 @@ class TUI(App):
         elif cmd == "/threads":
             await self._mount_message(UserMessage(command))
             if self._session_state:
-                await self._mount_message(
-                    SystemMessage(f"Current session: {self._session_state.thread_id}")
-                )
+                await self._mount_message(SystemMessage(f"Current session: {self._session_state.thread_id}"))
             else:
                 await self._mount_message(SystemMessage("No active session"))
         elif cmd == "/tokens":
@@ -479,9 +627,7 @@ class TUI(App):
                 exclusive=False,
             )
         else:
-            await self._mount_message(
-                SystemMessage("Agent not configured. Run with --agent flag or use standalone mode.")
-            )
+            await self._mount_message(SystemMessage("Agent not configured. Run with --agent flag or use standalone mode."))
 
     async def _run_agent_task(self, message: str) -> None:
         """Run the agent task in a background worker.
@@ -489,12 +635,15 @@ class TUI(App):
         This runs in a worker thread so the main event loop stays responsive.
         """
         try:
+            if self._ui_adapter is None:
+                raise ValueError("Addapter wasn't initialized")
+
             await execute_task_textual(
                 user_input=message,
                 agent=self._agent,
                 assistant_id=self._assistant_id,
                 session_state=self._session_state,
-                adapter=self._ui_adapter,
+                adapter=self._ui_adapter,  # This can be None if agent is not configured
                 backend=self._backend,
             )
         except Exception as e:
@@ -522,7 +671,7 @@ class TUI(App):
         if self._token_tracker:
             self._token_tracker.show()
 
-    async def _mount_message(self, widget: Static) -> None:
+    async def _mount_message(self, widget: Widget) -> None:
         """Mount a message widget to the messages area.
 
         Args:

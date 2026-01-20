@@ -6,24 +6,24 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11,<4.0"
 dependencies = [
-  "deepagents==0.3.7a1",
-  "langchain>=1.2.3,<2.0.0",
-  "langchain-openai>=1.1.7,<2.0.0",
-  "langgraph-checkpoint-sqlite>=3.0.0,<4.0.0",
-  "requests",
-  "rich>=13.0.0",
-  "prompt-toolkit>=3.0.52",
-  "tavily-python",
-  "python-dotenv",
-  "daytona>=0.113.0",
-  "modal>=0.65.0",
-  "markdownify>=0.13.0",
-  "runloop-api-client>=0.69.0",
-  "pillow>=10.0.0",
-  "pyyaml>=6.0",
-  "textual>=1.0.0",
-  "textual-autocomplete>=3.0.0",
-  "aiosqlite>=0.19.0",
+    "deepagents==0.3.7a1",
+    "langchain>=1.2.3,<2.0.0",
+    "langchain-openai>=1.1.7,<2.0.0",
+    "langgraph-checkpoint-sqlite>=3.0.0,<4.0.0",
+    "requests",
+    "rich>=13.0.0",
+    "prompt-toolkit>=3.0.52",
+    "tavily-python",
+    "python-dotenv",
+    "daytona>=0.113.0",
+    "modal>=0.65.0",
+    "markdownify>=0.13.0",
+    "runloop-api-client>=0.69.0",
+    "pillow>=10.0.0",
+    "pyyaml>=6.0",
+    "textual>=1.0.0",
+    "textual-autocomplete>=3.0.0",
+    "aiosqlite>=0.19.0",
 ]
 
 [project.scripts]
@@ -53,10 +53,7 @@ dev = [
     "pytest-asyncio>=1.2.0",
 ]
 
-lint = [
-    "ruff",
-    "mypy"
-]
+lint = ["ruff", "mypy"]
 
 [build-system]
 requires = ["setuptools>=73.0.0", "wheel"]
@@ -69,15 +66,15 @@ include = ["swe_workflow*"]
 swe_workflow = ["default_agent_prompt.md", "*.tcss", "py.typed"]
 
 [tool.ruff]
-line-length = 100
+line-length = 180
 exclude = []
 
 [tool.ruff.format]
-docstring-code-format = true  # Formats code blocks in docstrings
+docstring-code-format = true # Formats code blocks in docstrings
 
 [tool.ruff.lint]
 select = [
-    "ALL"  # Enable all rules by default
+    "ALL", # Enable all rules by default
 ]
 ignore = [
     "COM812",  # Messes with the formatter
@@ -89,7 +86,7 @@ ignore = [
     "PLC0414", # Inconsistent with how type checkers expect to be notified of intentional re-exports
     "C901",    # Too complex
 ]
-unfixable = ["B028"]  # Rules that shouldn't be auto-fixed
+unfixable = ["B028"] # Rules that shouldn't be auto-fixed
 
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = true
@@ -103,12 +100,12 @@ combine-as-imports = true
 known-first-party = ["swe_workflow"]
 
 [tool.ruff.lint.pydocstyle]
-convention = "google"  # Google-style docstrings
+convention = "google"        # Google-style docstrings
 ignore-var-parameters = true
 
 [tool.ruff.lint.per-file-ignores]
 "swe_workflow/cli.py" = [
-    "T201",    # Allow print statements in CLI
+    "T201", # Allow print statements in CLI
 ]
 "tests/*" = [
     "D1",      # Skip documentation rules in tests
@@ -120,7 +117,7 @@ ignore-var-parameters = true
 ]
 
 [tool.pytest.ini_options]
-timeout = 10  # Default timeout for all tests (can be overridden per-test)
+timeout = 10 # Default timeout for all tests (can be overridden per-test)
 
 [tool.mypy]
 strict = true
