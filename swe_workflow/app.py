@@ -256,9 +256,9 @@ class TUI(App):
                 if self._ui_adapter:
                     self._ui_adapter._current_tool_messages.clear()
 
-                # First pass: collect all messages and map tool call IDs to their original calls
+                # Prepare message processing
                 all_messages = list(messages)
-                
+
                 # Create a mapping of tool call IDs to their results
                 tool_results = {}
                 for msg in all_messages:
@@ -266,62 +266,10 @@ class TUI(App):
                         tool_call_id = getattr(msg, "tool_call_id", None)
                         if tool_call_id:
                             tool_results[tool_call_id] = msg
-                
-                # Second pass: process all messages and create widgets
+
+                # Process all messages and create widgets
                 for msg in all_messages:
-                    # Determine message type and create appropriate widget
-                    msg_class_name = type(msg).__name__.lower()
-                    content = self._extract_message_content(msg)
-                    
-                    if msg.type == "human" or "human" in msg_class_name or "user" in msg_class_name:
-                        message_widget = UserMessage(content)
-                        await self._mount_message(message_widget)
-                    elif (msg.type == "ai" or "ai" in msg_class_name or "assistant" in msg_class_name) and not (hasattr(msg, "tool_calls") and msg.tool_calls):
-                        message_widget = AssistantMessage(content)
-                        await self._mount_message(message_widget)
-                        await message_widget.write_initial_content()
-                    elif (msg.type == "ai" or "ai" in msg_class_name or "assistant" in msg_class_name) and hasattr(msg, "tool_calls") and msg.tool_calls:
-                        # This is an AI message with tool calls (not results)
-                        # Process each tool call in the message
-                        for tc in msg.tool_calls:
-                            tool_name = tc.get('name', 'unknown')
-                            tool_args = tc.get('args', {})
-                            tool_call_id = tc.get('id', None)
-                            
-                            # Check if there's a corresponding result for this tool call
-                            if tool_call_id and tool_call_id in tool_results:
-                                # There is a result, so create the tool call widget and immediately set its status
-                                message_widget = ToolCallMessage(tool_name=tool_name, args=tool_args)
-                                await self._mount_message(message_widget)
-                                
-                                # Get the result message and set the status
-                                result_msg = tool_results[tool_call_id]
-                                result_content = self._extract_message_content(result_msg)
-                                
-                                if hasattr(result_msg, "status") and result_msg.status == "error":
-                                    message_widget.set_error(result_content if result_content else "Tool execution failed")
-                                else:
-                                    message_widget.set_success(result_content if result_content else "Tool executed successfully")
-                            else:
-                                # No result yet, create pending tool call
-                                message_widget = ToolCallMessage(tool_name=tool_name, args=tool_args)
-                                await self._mount_message(message_widget)
-                                
-                                # Add to current tool messages if we have a UI adapter and tool_call_id
-                                if self._ui_adapter and tool_call_id:
-                                    self._ui_adapter._current_tool_messages[tool_call_id] = message_widget
-                    elif msg.type == "tool" or "tool" in msg_class_name:
-                        # This is a ToolMessage (result from a tool call), but we've already handled it
-                        # in the AI message processing above, so we skip it here to avoid duplication
-                        continue
-                    elif msg.type == "system" or "system" in msg_class_name:
-                        # For system messages
-                        message_widget = SystemMessage(content)
-                        await self._mount_message(message_widget)
-                    else:
-                        # For other message types, default to system message
-                        message_widget = SystemMessage(f"[{msg.type}] {content[:200]}")
-                        await self._mount_message(message_widget)
+                    await self._process_history_message(msg, tool_results)
 
                 # Force a refresh of the chat area to ensure all messages are displayed
                 chat_container = self.query_one("#chat", VerticalScroll)
@@ -330,6 +278,58 @@ class TUI(App):
         except Exception:
             # If there's an error loading history, just continue without it
             pass
+
+    async def _process_history_message(self, msg, tool_results):
+        """Process a single message and create the appropriate widget."""
+        msg_class_name = type(msg).__name__.lower()
+        content = self._extract_message_content(msg)
+
+        if msg.type == "human" or "human" in msg_class_name or "user" in msg_class_name:
+            message_widget = UserMessage(content)
+            await self._mount_message(message_widget)
+        elif (msg.type == "ai" or "ai" in msg_class_name or "assistant" in msg_class_name) and not (hasattr(msg, "tool_calls") and msg.tool_calls):
+            message_widget = AssistantMessage(content)
+            await self._mount_message(message_widget)
+            await message_widget.write_initial_content()
+        elif (msg.type == "ai" or "ai" in msg_class_name or "assistant" in msg_class_name) and hasattr(msg, "tool_calls") and msg.tool_calls:
+            for tc in msg.tool_calls:
+                tool_name = tc.get("name", "unknown")
+                tool_args = tc.get("args", {})
+                tool_call_id = tc.get("id", None)
+
+                # Check if there's a corresponding result for this tool call
+                if tool_call_id and tool_call_id in tool_results:
+                    # There is a result, so create the tool call widget and immediately set its status
+                    message_widget = ToolCallMessage(tool_name=tool_name, args=tool_args)
+                    await self._mount_message(message_widget)
+
+                    # Get the result message and set the status
+                    result_msg = tool_results[tool_call_id]
+                    result_content = self._extract_message_content(result_msg)
+
+                    if hasattr(result_msg, "status") and result_msg.status == "error":
+                        message_widget.set_error(result_content if result_content else "Tool execution failed")
+                    else:
+                        message_widget.set_success(result_content if result_content else "Tool executed successfully")
+                else:
+                    # No result yet, create pending tool call
+                    message_widget = ToolCallMessage(tool_name=tool_name, args=tool_args)
+                    await self._mount_message(message_widget)
+
+                    # Add to current tool messages if we have a UI adapter and tool_call_id
+                    if self._ui_adapter and tool_call_id:
+                        self._ui_adapter._current_tool_messages[tool_call_id] = message_widget
+        elif msg.type == "tool" or "tool" in msg_class_name:
+            # This is a ToolMessage (result from a tool call), but we've already handled it
+            # in the AI message processing above, so we skip it here to avoid duplication
+            return
+        elif msg.type == "system" or "system" in msg_class_name:
+            message_widget = SystemMessage(content)
+            await self._mount_message(message_widget)
+        else:
+            # For other message types, default to system message
+            message_widget = SystemMessage(f"[{msg.type}] {content[:200]}")
+            await self._mount_message(message_widget)
 
     def _extract_message_content(self, msg: BaseMessage) -> str:
         """Extract content from a message object, handling various formats."""
