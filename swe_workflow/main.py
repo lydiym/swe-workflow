@@ -24,6 +24,7 @@ from ._version import __version__
 
 # Now safe to import agent (which imports LangChain modules)
 from .agent import create_cli_agent, list_agents, reset_agent
+from .non_interactive import run_non_interactive_mode
 
 # CRITICAL: Import config FIRST to set LANGSMITH_PROJECT before LangChain loads
 from .config import (
@@ -170,6 +171,16 @@ def parse_args() -> argparse.Namespace:
         help="Auto-approve tool usage without prompting (disables human-in-the-loop)",
     )
     parser.add_argument(
+        "--non-interactive",
+        "--batch",
+        action="store_true",
+        help="Run in non-interactive mode without UI, auto-approving all actions",
+    )
+    parser.add_argument(
+        "--task",
+        help="Task to execute in non-interactive mode",
+    )
+    parser.add_argument(
         "--sandbox",
         choices=["none", "modal", "daytona", "runloop"],
         default="none",
@@ -312,83 +323,140 @@ def cli_main() -> None:
             else:
                 console.print("[yellow]Usage: swe-workflow threads <list|delete>[/yellow]")
         else:
-            # Interactive mode - handle thread resume
-            thread_id = None
-            is_resumed = False
+            # Check if running in non-interactive mode
+            if args.non_interactive:
+                # Non-interactive mode - run without UI
+                thread_id = None
+                is_resumed = False
 
-            if args.resume_thread == "__MOST_RECENT__":
-                # -r (no ID): Get most recent thread
-                # If --agent specified, filter by that agent; otherwise get most recent overall
-                agent_filter = args.agent if args.agent != "agent" else None
-                thread_id = asyncio.run(get_most_recent(agent_filter))
-                if thread_id:
-                    is_resumed = True
-                    agent_name = asyncio.run(get_thread_agent(thread_id))
-                    if agent_name:
-                        args.agent = agent_name
-                else:
-                    if agent_filter:
-                        msg = Text("No previous thread for '", style="yellow")
-                        msg.append(args.agent)
-                        msg.append("', starting new.", style="yellow")
-                    else:
-                        msg = Text("No previous threads, starting new.", style="yellow")
-                    console.print(msg)
-
-            elif args.resume_thread:
-                # -r <ID>: Resume specific thread
-                if asyncio.run(thread_exists(args.resume_thread)):
-                    thread_id = args.resume_thread
-                    is_resumed = True
-                    if args.agent == "agent":
+                if args.resume_thread == "__MOST_RECENT__":
+                    # -r (no ID): Get most recent thread
+                    agent_filter = args.agent if args.agent != "agent" else None
+                    thread_id = asyncio.run(get_most_recent(agent_filter))
+                    if thread_id:
+                        is_resumed = True
                         agent_name = asyncio.run(get_thread_agent(thread_id))
                         if agent_name:
                             args.agent = agent_name
-                else:
-                    error_msg = Text("Thread '", style="red")
-                    error_msg.append(args.resume_thread)
-                    error_msg.append("' not found.", style="red")
-                    console.print(error_msg)
-                    console.print(
-                        "[dim]Use 'swe-workflow threads list' to see available threads.[/dim]"
+                    else:
+                        if agent_filter:
+                            print(f"No previous thread for '{args.agent}', starting new.")
+                        else:
+                            print("No previous threads, starting new.")
+
+                elif args.resume_thread:
+                    # -r <ID>: Resume specific thread
+                    if asyncio.run(thread_exists(args.resume_thread)):
+                        thread_id = args.resume_thread
+                        is_resumed = True
+                        if args.agent == "agent":
+                            agent_name = asyncio.run(get_thread_agent(thread_id))
+                            if agent_name:
+                                args.agent = agent_name
+                    else:
+                        print(f"Thread '{args.resume_thread}' not found.")
+                        print("Use 'swe-workflow threads list' to see available threads.")
+                        sys.exit(1)
+
+                # Generate new thread ID if not resuming
+                if thread_id is None:
+                    thread_id = generate_thread_id()
+
+                # Use the model from --model argument
+                model_name = getattr(args, "model", None)
+
+                # Run non-interactive mode with resume capability
+                exit_code = asyncio.run(
+                    run_non_interactive_with_resume(
+                        task=args.task or "",
+                        assistant_id=args.agent,
+                        auto_approve=True,  # Always auto-approve in non-interactive mode
+                        sandbox_type=args.sandbox,
+                        sandbox_id=args.sandbox_id,
+                        model_name=model_name,
+                        resume_thread_id=thread_id if is_resumed else None,
+                        initial_prompt=getattr(args, "initial_prompt", None),
                     )
-                    sys.exit(1)
-
-            # Generate new thread ID if not resuming
-            if thread_id is None:
-                thread_id = generate_thread_id()
-
-            # Handle OpenAI-compatible API configuration from command line
-            # If openai-compatible URL is provided, set up the configuration and mark for use
-            if hasattr(args, "openai_compatible_url") and args.openai_compatible_url:
-                os.environ["OPENAI_COMPATIBLE_URL"] = args.openai_compatible_url
-                # Update both environment variable and internal setting
-                settings.openai_compatible_url = args.openai_compatible_url
-                os.environ["USE_OPENAI_COMPATIBLE"] = (
-                    "1"  # Flag to indicate OpenAI-compatible API usage
                 )
-                # If no model was specified but we have an openai-compatible URL,
-                # we should use a default model or let the config system handle it
-                if not hasattr(args, "model") or not args.model:
-                    # Default will be used if no --model specified
-                    pass
+                sys.exit(exit_code)
+            else:
+                # Interactive mode - handle thread resume
+                thread_id = None
+                is_resumed = False
 
-            # Use the model from --model argument
-            model_name = getattr(args, "model", None)
+                if args.resume_thread == "__MOST_RECENT__":
+                    # -r (no ID): Get most recent thread
+                    # If --agent specified, filter by that agent; otherwise get most recent overall
+                    agent_filter = args.agent if args.agent != "agent" else None
+                    thread_id = asyncio.run(get_most_recent(agent_filter))
+                    if thread_id:
+                        is_resumed = True
+                        agent_name = asyncio.run(get_thread_agent(thread_id))
+                        if agent_name:
+                            args.agent = agent_name
+                    else:
+                        if agent_filter:
+                            msg = Text("No previous thread for '", style="yellow")
+                            msg.append(args.agent)
+                            msg.append("', starting new.", style="yellow")
+                        else:
+                            msg = Text("No previous threads, starting new.", style="yellow")
+                        console.print(msg)
 
-            # Run Textual CLI
-            asyncio.run(
-                run_textual_cli_async(
-                    assistant_id=args.agent,
-                    auto_approve=args.auto_approve,
-                    sandbox_type=args.sandbox,
-                    sandbox_id=args.sandbox_id,
-                    model_name=model_name,
-                    thread_id=thread_id,
-                    is_resumed=is_resumed,
-                    initial_prompt=getattr(args, "initial_prompt", None),
+                elif args.resume_thread:
+                    # -r <ID>: Resume specific thread
+                    if asyncio.run(thread_exists(args.resume_thread)):
+                        thread_id = args.resume_thread
+                        is_resumed = True
+                        if args.agent == "agent":
+                            agent_name = asyncio.run(get_thread_agent(thread_id))
+                            if agent_name:
+                                args.agent = agent_name
+                    else:
+                        error_msg = Text("Thread '", style="red")
+                        error_msg.append(args.resume_thread)
+                        error_msg.append("' not found.", style="red")
+                        console.print(error_msg)
+                        console.print(
+                            "[dim]Use 'swe-workflow threads list' to see available threads.[/dim]"
+                        )
+                        sys.exit(1)
+
+                # Generate new thread ID if not resuming
+                if thread_id is None:
+                    thread_id = generate_thread_id()
+
+                # Handle OpenAI-compatible API configuration from command line
+                # If openai-compatible URL is provided, set up the configuration and mark for use
+                if hasattr(args, "openai_compatible_url") and args.openai_compatible_url:
+                    os.environ["OPENAI_COMPATIBLE_URL"] = args.openai_compatible_url
+                    # Update both environment variable and internal setting
+                    settings.openai_compatible_url = args.openai_compatible_url
+                    os.environ["USE_OPENAI_COMPATIBLE"] = (
+                        "1"  # Flag to indicate OpenAI-compatible API usage
+                    )
+                    # If no model was specified but we have an openai-compatible URL,
+                    # we should use a default model or let the config system handle it
+                    if not hasattr(args, "model") or not args.model:
+                        # Default will be used if no --model specified
+                        pass
+
+                # Use the model from --model argument
+                model_name = getattr(args, "model", None)
+
+                # Run Textual CLI
+                asyncio.run(
+                    run_textual_cli_async(
+                        assistant_id=args.agent,
+                        auto_approve=args.auto_approve,
+                        sandbox_type=args.sandbox,
+                        sandbox_id=args.sandbox_id,
+                        model_name=model_name,
+                        thread_id=thread_id,
+                        is_resumed=is_resumed,
+                        initial_prompt=getattr(args, "initial_prompt", None),
+                    )
                 )
-            )
     except KeyboardInterrupt:
         # Clean exit on Ctrl+C - suppress ugly traceback
         console.print("\n\n[yellow]Interrupted[/yellow]")

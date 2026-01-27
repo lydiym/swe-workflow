@@ -187,6 +187,8 @@ def show_help() -> None:
         "  --model MODEL                 Model to use (e.g., claude-sonnet-4-5-20250929, gpt-4o)"
     )
     console.print("  --auto-approve                Auto-approve tool usage without prompting")
+    console.print("  --non-interactive, --batch    Run in non-interactive mode without UI")
+    console.print("  --task TASK                   Task to execute in non-interactive mode")
     console.print(
         "  --sandbox TYPE                Remote sandbox for execution (modal, runloop, daytona)"
     )
@@ -223,6 +225,10 @@ def show_help() -> None:
     )
     console.print(
         "  swe-workflow --sandbox runloop            # Execute code in Runloop sandbox",
+        style=COLORS["dim"],
+    )
+    console.print(
+        "  swe-workflow --non-interactive --task \"Do something\"  # Run without UI",
         style=COLORS["dim"],
     )
     console.print()
