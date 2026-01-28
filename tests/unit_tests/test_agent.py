@@ -264,4 +264,3 @@ def test_format_execute_description():
     description = _format_execute_description(tool_call, state, runtime)
 
     assert "Execute Command: python script.py" in description
-    assert "Location: Remote Sandbox" in description

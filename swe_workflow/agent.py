@@ -7,7 +7,6 @@ from pathlib import Path
 from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend
 from deepagents.backends.filesystem import FilesystemBackend
-from deepagents.backends.sandbox import SandboxBackendProtocol
 from deepagents.middleware import MemoryMiddleware, SkillsMiddleware
 from langchain.agents.middleware import (
     InterruptOnConfig,
@@ -22,7 +21,6 @@ from langgraph.pregel import Pregel
 from langgraph.runtime import Runtime
 
 from .config import COLORS, config, console, get_default_coding_instructions, settings
-from .integrations.sandbox_factory import get_default_working_dir
 from .local_context import LocalContextMiddleware
 from .shell import ShellMiddleware
 
@@ -92,38 +90,19 @@ def reset_agent(agent_name: str, source_agent: str | None = None) -> None:
     console.print(f"Location: {agent_dir}\n", style=COLORS["dim"])
 
 
-def get_system_prompt(assistant_id: str, sandbox_type: str | None = None) -> str:
+def get_system_prompt(assistant_id: str) -> str:
     """Get the base system prompt for the agent.
 
     Args:
         assistant_id: The agent identifier for path references
-        sandbox_type: Type of sandbox provider ("modal", "runloop", "daytona").
-                     If None, agent is operating in local mode.
 
     Returns:
         The system prompt string (without AGENTS.md content)
     """
     agent_dir_path = f"~/.swe-workflow/{assistant_id}"
-
-    if sandbox_type:
-        # Get provider-specific working directory
-
-        working_dir = get_default_working_dir(sandbox_type)
-
-        working_dir_section = f"""### Current Working Directory
-
-You are operating in a **remote Linux sandbox** at `{working_dir}`.
-
-All code execution and file operations happen in this sandbox environment.
-
-**Important:**
-- The CLI is running locally on the user's machine, but you execute code remotely
-- Use `{working_dir}` as your working directory for all operations
-
-"""
-    else:
-        cwd = Path.cwd()
-        working_dir_section = f"""### Current Working Directory
+    cwd = Path.cwd()
+    
+    working_dir_section = f"""### Current Working Directory
 
 The filesystem backend is currently operating in: `{cwd}`
 
@@ -270,7 +249,7 @@ def _format_execute_description(tool_call: ToolCall, _state: AgentState, _runtim
     """Format execute tool call for approval prompt."""
     args = tool_call["args"]
     command = args.get("command", "N/A")
-    return f"Execute Command: {command}\nLocation: Remote Sandbox"
+    return f"Execute Command: {command}\nLocation: Local System"
 
 
 def _add_interrupt_on() -> dict[str, InterruptOnConfig]:
@@ -325,8 +304,6 @@ def create_cli_agent(
     assistant_id: str,
     *,
     tools: list[BaseTool] | None = None,
-    sandbox: SandboxBackendProtocol | None = None,
-    sandbox_type: str | None = None,
     system_prompt: str | None = None,
     auto_approve: bool = False,
     enable_memory: bool = True,
@@ -343,12 +320,8 @@ def create_cli_agent(
         model: LLM model to use (e.g., "anthropic:claude-sonnet-4-5-20250929")
         assistant_id: Agent identifier for memory/state storage
         tools: Additional tools to provide to agent
-        sandbox: Optional sandbox backend for remote execution (e.g., ModalBackend).
-                 If None, uses local filesystem + shell.
-        sandbox_type: Type of sandbox provider ("modal", "runloop", "daytona").
-                     Used for system prompt generation.
         system_prompt: Override the default system prompt. If None, generates one
-                      based on sandbox_type and assistant_id.
+                      based on assistant_id.
         auto_approve: If True, automatically approves all tool calls without human
                      confirmation. Useful for automated workflows.
         enable_memory: Enable MemoryMiddleware for persistent memory
@@ -409,37 +382,30 @@ def create_cli_agent(
             )
         )
 
-    # CONDITIONAL SETUP: Local vs Remote Sandbox
-    if sandbox is None:
-        # ========== LOCAL MODE ==========
-        backend = FilesystemBackend()  # Current working directory
+    # ========== LOCAL MODE ==========
+    backend = FilesystemBackend()  # Current working directory
 
-        # Local context middleware (git info, directory tree, etc.)
-        agent_middleware.append(LocalContextMiddleware())
+    # Local context middleware (git info, directory tree, etc.)
+    agent_middleware.append(LocalContextMiddleware())
 
-        # Add shell middleware (only in local mode)
-        if enable_shell:
-            # Create environment for shell commands
-            # Restore user's original LANGSMITH_PROJECT so their code traces separately
-            shell_env = os.environ.copy()
-            if settings.user_langchain_project:
-                shell_env["LANGSMITH_PROJECT"] = settings.user_langchain_project
+    # Add shell middleware (only in local mode)
+    if enable_shell:
+        # Create environment for shell commands
+        # Restore user's original LANGSMITH_PROJECT so their code traces separately
+        shell_env = os.environ.copy()
+        if settings.user_langchain_project:
+            shell_env["LANGSMITH_PROJECT"] = settings.user_langchain_project
 
-            agent_middleware.append(
-                ShellMiddleware(
-                    workspace_root=str(Path.cwd()),
-                    env=shell_env,
-                )
+        agent_middleware.append(
+            ShellMiddleware(
+                workspace_root=str(Path.cwd()),
+                env=shell_env,
             )
-    else:
-        # ========== REMOTE SANDBOX MODE ==========
-        backend = sandbox  # Remote sandbox (ModalBackend, etc.)
-        # Note: Shell middleware not used in sandbox mode
-        # File operations and execute tool are provided by the sandbox backend
+        )
 
     # Get or use custom system prompt
     if system_prompt is None:
-        system_prompt = get_system_prompt(assistant_id=assistant_id, sandbox_type=sandbox_type)
+        system_prompt = get_system_prompt(assistant_id=assistant_id)
 
     # Configure interrupt_on based on auto_approve setting
     if auto_approve:

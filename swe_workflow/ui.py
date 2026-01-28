@@ -189,13 +189,8 @@ def show_help() -> None:
     console.print("  --auto-approve                Auto-approve tool usage without prompting")
     console.print("  --non-interactive, --batch    Run in non-interactive mode without UI")
     console.print("  --task TASK                   Task to execute in non-interactive mode")
-    console.print(
-        "  --sandbox TYPE                Remote sandbox for execution (modal, runloop, daytona)"
-    )
-    console.print("  --sandbox-id ID               Reuse existing sandbox (skips creation/cleanup)")
-    console.print(
-        "  -r, --resume [ID]             Resume thread: -r for most recent, -r <ID> for specific"
-    )
+    console.print("  -r, --resume [ID]             Resume thread: -r for most recent, -r <ID> for specific")
+    console.print()
     console.print()
 
     console.print("[bold]Examples:[/bold]", style=COLORS["primary"])
@@ -221,10 +216,6 @@ def show_help() -> None:
     )
     console.print(
         "  swe-workflow --auto-approve               # Start with auto-approve enabled",
-        style=COLORS["dim"],
-    )
-    console.print(
-        "  swe-workflow --sandbox runloop            # Execute code in Runloop sandbox",
         style=COLORS["dim"],
     )
     console.print(

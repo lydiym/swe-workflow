@@ -54,9 +54,6 @@ swe-workflow --model gpt-4o
 # Auto-approve tool usage (skip human-in-the-loop prompts)
 swe-workflow --auto-approve
 
-# Execute code in a remote sandbox
-swe-workflow --sandbox modal        # or runloop, daytona
-swe-workflow --sandbox-id dbx_123   # reuse existing sandbox
 ```
 
 Type naturally as you would in a chat interface. The agent will use its built-in tools, skills, and memory to help you with tasks.
@@ -158,7 +155,6 @@ The agent comes with the following built-in tools (always available without conf
 | `glob`        | Find files matching a pattern (e.g., `**/*.py`)   |
 | `grep`        | Search for text patterns across files             |
 | `shell`       | Execute shell commands (local mode)               |
-| `execute`     | Execute commands in remote sandbox (sandbox mode) |
 | `web_search`  | Search the web using Tavily API                   |
 | `fetch_url`   | Fetch and convert web pages to markdown           |
 | `task`        | Delegate work to subagents for parallel execution |
@@ -170,7 +166,7 @@ The agent comes with the following built-in tools (always available without conf
 > Potentially destructive operations require user approval before execution:
 >
 > - **File operations**: `write_file`, `edit_file`
-> - **Command execution**: `shell`, `execute`
+> - **Command execution**: `shell`
 > - **External requests**: `web_search`, `fetch_url`
 > - **Delegation**: `task` (subagents)
 >

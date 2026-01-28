@@ -32,7 +32,6 @@ from .config import (
     create_model,
     settings,
 )
-from .integrations.sandbox_factory import create_sandbox
 from .sessions import (
     delete_thread_command,
     generate_thread_id,
@@ -180,20 +179,6 @@ def parse_args() -> argparse.Namespace:
         "--task",
         help="Task to execute in non-interactive mode",
     )
-    parser.add_argument(
-        "--sandbox",
-        choices=["none", "modal", "daytona", "runloop"],
-        default="none",
-        help="Remote sandbox for code execution (default: none - local only)",
-    )
-    parser.add_argument(
-        "--sandbox-id",
-        help="Existing sandbox ID to reuse (skips creation and cleanup)",
-    )
-    parser.add_argument(
-        "--sandbox-setup",
-        help="Path to setup script to run in sandbox after creation",
-    )
     return parser.parse_args()
 
 
@@ -201,8 +186,6 @@ async def run_textual_cli_async(
     assistant_id: str,
     *,
     auto_approve: bool = False,
-    sandbox_type: str = "none",
-    sandbox_id: str | None = None,
     model_name: str | None = None,
     thread_id: str | None = None,
     is_resumed: bool = False,
@@ -213,8 +196,6 @@ async def run_textual_cli_async(
     Args:
         assistant_id: Agent identifier for memory storage
         auto_approve: Whether to auto-approve tool usage
-        sandbox_type: Type of sandbox ("none", "modal", "runloop", "daytona")
-        sandbox_id: Optional existing sandbox ID to reuse
         model_name: Optional model name to use
         thread_id: Thread ID to use (new or resumed)
         is_resumed: Whether this is a resumed session
@@ -237,28 +218,11 @@ async def run_textual_cli_async(
         if settings.has_tavily:
             tools.append(web_search)
 
-        # Handle sandbox mode
-        sandbox_backend = None
-        sandbox_cm = None
-
-        if sandbox_type != "none":
-            try:
-                # Create sandbox context manager but keep it open
-                sandbox_cm = create_sandbox(sandbox_type, sandbox_id=sandbox_id)
-                sandbox_backend = sandbox_cm.__enter__()
-            except (ImportError, ValueError, RuntimeError, NotImplementedError) as e:
-                console.print()
-                console.print("[red]❌ Sandbox creation failed[/red]")
-                console.print(Text(str(e), style="dim"))
-                sys.exit(1)
-
         try:
             agent, composite_backend = create_cli_agent(
                 model=model,
                 assistant_id=assistant_id,
                 tools=tools,
-                sandbox=sandbox_backend,
-                sandbox_type=sandbox_type if sandbox_type != "none" else None,
                 auto_approve=auto_approve,
                 checkpointer=checkpointer,
             )
@@ -279,10 +243,7 @@ async def run_textual_cli_async(
             console.print(error_text)
             sys.exit(1)
         finally:
-            # Clean up sandbox if we created one
-            if sandbox_cm is not None:
-                with contextlib.suppress(Exception):
-                    sandbox_cm.__exit__(None, None, None)
+            pass
 
 
 def cli_main() -> None:
@@ -386,8 +347,6 @@ def cli_main() -> None:
                         task=args.task or "",
                         assistant_id=args.agent,
                         auto_approve=True,  # Always auto-approve in non-interactive mode
-                        sandbox_type=args.sandbox,
-                        sandbox_id=args.sandbox_id,
                         model_name=model_name,
                         resume_thread_id=thread_id if is_resumed else None,
                         initial_prompt=getattr(args, "initial_prompt", None),
@@ -464,8 +423,6 @@ def cli_main() -> None:
                     run_textual_cli_async(
                         assistant_id=args.agent,
                         auto_approve=args.auto_approve,
-                        sandbox_type=args.sandbox,
-                        sandbox_id=args.sandbox_id,
                         model_name=model_name,
                         thread_id=thread_id,
                         is_resumed=is_resumed,

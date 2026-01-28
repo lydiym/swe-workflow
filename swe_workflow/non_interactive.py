@@ -14,7 +14,6 @@ from .config import create_model, settings
 from .file_ops import FileOpTracker
 from .image_utils import create_multimodal_content
 from .input import ImageTracker, parse_file_mentions
-from .integrations.sandbox_factory import create_sandbox
 from .sessions import get_checkpointer, generate_thread_id
 from .tools import fetch_url, http_request, web_search
 
@@ -268,8 +267,6 @@ async def run_non_interactive_mode(
     task: str,
     assistant_id: str,
     auto_approve: bool = True,
-    sandbox_type: str = "none",
-    sandbox_id: str | None = None,
     model_name: str | None = None,
     thread_id: str | None = None,
     initial_prompt: str | None = None,
@@ -280,8 +277,6 @@ async def run_non_interactive_mode(
         task: The task to execute
         assistant_id: Agent identifier for memory storage
         auto_approve: Whether to auto-approve tool usage
-        sandbox_type: Type of sandbox ("none", "modal", "runloop", "daytona")
-        sandbox_id: Optional existing sandbox ID to reuse
         model_name: Optional model name to use
         thread_id: Thread ID to use (new or resumed)
         initial_prompt: Optional initial prompt to execute
@@ -301,26 +296,11 @@ async def run_non_interactive_mode(
         if settings.has_tavily:
             tools.append(web_search)
 
-        # Handle sandbox mode
-        sandbox_backend = None
-        sandbox_cm = None
-
-        if sandbox_type != "none":
-            try:
-                # Create sandbox context manager but keep it open
-                sandbox_cm = create_sandbox(sandbox_type, sandbox_id=sandbox_id)
-                sandbox_backend = sandbox_cm.__enter__()
-            except (ImportError, ValueError, RuntimeError, NotImplementedError) as e:
-                print(f"❌ Sandbox creation failed: {e}")
-                return
-
         try:
             agent, composite_backend = create_cli_agent(
                 model=model,
                 assistant_id=assistant_id,
                 tools=tools,
-                sandbox=sandbox_backend,
-                sandbox_type=sandbox_type if sandbox_type != "none" else None,
                 auto_approve=auto_approve,  # Critical for non-interactive mode
                 checkpointer=checkpointer,
             )
@@ -343,20 +323,13 @@ async def run_non_interactive_mode(
             print(f"❌ Failed to execute task: {e}")
             raise
         finally:
-            # Clean up sandbox if we created one
-            if sandbox_cm is not None:
-                try:
-                    sandbox_cm.__exit__(None, None, None)
-                except Exception:
-                    pass
+            pass
 
 
 async def run_non_interactive_with_resume(
     task: str,
     assistant_id: str,
     auto_approve: bool = True,
-    sandbox_type: str = "none",
-    sandbox_id: str | None = None,
     model_name: str | None = None,
     resume_thread_id: str | None = None,
     initial_prompt: str | None = None,
@@ -367,8 +340,6 @@ async def run_non_interactive_with_resume(
         task: The task to execute
         assistant_id: Agent identifier for memory storage
         auto_approve: Whether to auto-approve tool usage
-        sandbox_type: Type of sandbox ("none", "modal", "runloop", "daytona")
-        sandbox_id: Optional existing sandbox ID to reuse
         model_name: Optional model name to use
         resume_thread_id: Thread ID to resume (None for new thread)
         initial_prompt: Optional initial prompt to execute
@@ -394,26 +365,11 @@ async def run_non_interactive_with_resume(
         if settings.has_tavily:
             tools.append(web_search)
 
-        # Handle sandbox mode
-        sandbox_backend = None
-        sandbox_cm = None
-
-        if sandbox_type != "none":
-            try:
-                # Create sandbox context manager but keep it open
-                sandbox_cm = create_sandbox(sandbox_type, sandbox_id=sandbox_id)
-                sandbox_backend = sandbox_cm.__enter__()
-            except (ImportError, ValueError, RuntimeError, NotImplementedError) as e:
-                print(f"❌ Sandbox creation failed: {e}")
-                return 1  # Exit with error code
-
         try:
             agent, composite_backend = create_cli_agent(
                 model=model,
                 assistant_id=assistant_id,
                 tools=tools,
-                sandbox=sandbox_backend,
-                sandbox_type=sandbox_type if sandbox_type != "none" else None,
                 auto_approve=auto_approve,  # Critical for non-interactive mode
                 checkpointer=checkpointer,
             )
@@ -440,11 +396,6 @@ async def run_non_interactive_with_resume(
             print(f"❌ Failed to execute task: {e}")
             return 1  # Exit with error code
         finally:
-            # Clean up sandbox if we created one
-            if sandbox_cm is not None:
-                try:
-                    sandbox_cm.__exit__(None, None, None)
-                except Exception:
-                    pass
+            pass
 
     return 0  # Exit with success code
