@@ -24,7 +24,7 @@ from ._version import __version__
 
 # Now safe to import agent (which imports LangChain modules)
 from .agent import create_cli_agent, list_agents, reset_agent
-from .non_interactive import run_non_interactive_mode
+from .non_interactive import run_non_interactive_with_resume
 
 # CRITICAL: Import config FIRST to set LANGSMITH_PROJECT before LangChain loads
 from .config import (
@@ -361,6 +361,21 @@ def cli_main() -> None:
                 # Generate new thread ID if not resuming
                 if thread_id is None:
                     thread_id = generate_thread_id()
+
+                # Handle OpenAI-compatible API configuration from command line
+                # If openai-compatible URL is provided, set up the configuration and mark for use
+                if hasattr(args, "openai_compatible_url") and args.openai_compatible_url:
+                    os.environ["OPENAI_COMPATIBLE_URL"] = args.openai_compatible_url
+                    # Update both environment variable and internal setting
+                    settings.openai_compatible_url = args.openai_compatible_url
+                    os.environ["USE_OPENAI_COMPATIBLE"] = (
+                        "1"  # Flag to indicate OpenAI-compatible API usage
+                    )
+                    # If no model was specified but we have an openai-compatible URL,
+                    # we should use a default model or let the config system handle it
+                    if not hasattr(args, "model") or not args.model:
+                        # Default will be used if no --model specified
+                        pass
 
                 # Use the model from --model argument
                 model_name = getattr(args, "model", None)
