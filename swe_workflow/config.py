@@ -464,140 +464,23 @@ def create_model(model_name_override: str | None = None) -> BaseChatModel:
     Raises:
         SystemExit if no API key is configured or model provider can't be determined
     """
-    # Determine provider and model
-    if model_name_override:
-        # Use provided model, auto-detect provider
-        provider = _detect_provider(model_name_override)
-
-        # If provider detection fails but OpenAI-compatible settings are configured and flagged for use,
-        # use the OpenAI-compatible provider (this handles cases where users specify custom model names)
-        if (
-            not provider
-            and settings.has_openai_compatible
-            and os.environ.get("USE_OPENAI_COMPATIBLE")
-        ):
-            provider = "openai-compatible"
-            # Use the model name as-is since it's meant for OpenAI-compatible API
-        elif not provider:
-            console.print(
-                f"[bold red]Error:[/bold red] Could not detect provider from model name: {model_name_override}"
-            )
-            console.print("\nSupported model name patterns:")
-            console.print("  - OpenAI: gpt-*, o1-*, o3-*")
-            console.print("  - Anthropic: claude-*")
-            console.print("  - Google: gemini-*")
-            console.print(
-                "  - OpenAI-compatible: ollama:<model>, local:<model>, llama*, mistral*, etc. (when OpenAI-compatible API is configured)"
-            )
-            console.print(
-                "\nAlternatively, configure OpenAI-compatible API with --openai-compatible-url and --model"
-            )
-            sys.exit(1)
-
-        # Check if API key for detected provider is available
-        if provider == "openai" and not settings.has_openai:
-            console.print(
-                f"[bold red]Error:[/bold red] Model '{model_name_override}' requires OPENAI_API_KEY"
-            )
-            sys.exit(1)
-        elif provider == "anthropic" and not settings.has_anthropic:
-            console.print(
-                f"[bold red]Error:[/bold red] Model '{model_name_override}' requires ANTHROPIC_API_KEY"
-            )
-            sys.exit(1)
-        elif provider == "google" and not settings.has_google:
-            console.print(
-                f"[bold red]Error:[/bold red] Model '{model_name_override}' requires GOOGLE_API_KEY"
-            )
-            sys.exit(1)
-        elif provider == "openai-compatible" and not settings.has_openai_compatible:
-            console.print(
-                f"[bold red]Error:[/bold red] Model '{model_name_override}' requires OPENAI_COMPATIBLE_URL to be set"
-            )
-            console.print("\nPlease set the OPENAI_COMPATIBLE_URL environment variable:")
-            console.print(
-                "  export OPENAI_COMPATIBLE_URL=http://localhost:11434/v1  # Ollama example"
-            )
-            console.print(
-                "  export OPENAI_COMPATIBLE_URL=http://localhost:8000/v1    # LocalAI/vLLM example"
-            )
-            sys.exit(1)
-
-        model_name = model_name_override
-    # Use environment variable defaults, detect provider by API key priority
-    # Check for OpenAI-compatible API first if configured
-    elif settings.has_openai_compatible and os.environ.get("USE_OPENAI_COMPATIBLE"):
-        provider = "openai-compatible"
-        # If no specific model was provided via model_name_override, use the default
-        if not model_name_override:
-            model_name = os.environ.get(
-                "OPENAI_COMPATIBLE_MODEL", "llama3"
-            )  # Default OpenAI-compatible model
-        else:
-            model_name = model_name_override  # Use the model provided via --model
-    elif settings.has_openai:
-        provider = "openai"
-        model_name = os.environ.get("OPENAI_MODEL", "gpt-5-mini")
-    elif settings.has_anthropic:
-        provider = "anthropic"
-        model_name = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929")
-    elif settings.has_google:
-        provider = "google"
-        model_name = os.environ.get("GOOGLE_MODEL", "gemini-3-pro-preview")
-    elif settings.has_openai_compatible:
-        provider = "openai-compatible"
-        model_name = os.environ.get(
-            "OPENAI_COMPATIBLE_MODEL", "llama3"
-        )  # Default OpenAI-compatible model
-    else:
-        console.print("[bold red]Error:[/bold red] No API key configured.")
-        console.print("\nPlease set one of the following environment variables:")
-        console.print("  - OPENAI_API_KEY     (for OpenAI models like gpt-5-mini)")
-        console.print("  - ANTHROPIC_API_KEY  (for Claude models)")
-        console.print("  - GOOGLE_API_KEY     (for Google Gemini models)")
-        console.print("  - OPENAI_COMPATIBLE_URL (for OpenAI-compatible APIs like Ollama, LocalAI)")
-        console.print(
-            "  - OPENAI_COMPATIBLE_API_KEY  (optional, defaults to 'sk-openai-compatible')"
-        )
-        console.print("\nExamples:")
-        console.print("  export OPENAI_API_KEY=your_api_key_here")
-        console.print("  export OPENAI_COMPATIBLE_URL=http://localhost:11434/v1")
-        console.print("\nOr add them to your .env file.")
+    from .model_selection import create_model_selection_chain, ModelFactory
+    
+    # Create the chain of model selection strategies
+    chain = create_model_selection_chain(settings, console)
+    
+    # Execute the chain to get provider and model name
+    result = chain.execute(model_name_override)
+    if result is None:
+        # This should not happen if the chain is properly implemented, but added for safety
+        console.print("[bold red]Error:[/bold red] Could not determine model provider.")
         sys.exit(1)
-
+    
+    provider, model_name = result
+    
     # Store model info in settings for display
     settings.model_name = model_name
     settings.model_provider = provider
 
-    # Create and return the model
-    if provider == "openai":
-        from langchain_openai import ChatOpenAI
-
-        return ChatOpenAI(model=model_name)
-    if provider == "anthropic":
-        from langchain_anthropic import ChatAnthropic
-
-        return ChatAnthropic(
-            model_name=model_name,
-            max_tokens=20_000,  # type: ignore[arg-type]
-        )
-    if provider == "google":
-        from langchain_google_genai import ChatGoogleGenerativeAI
-
-        return ChatGoogleGenerativeAI(
-            model=model_name,
-            temperature=0,
-            max_tokens=None,
-        )
-    if provider == "openai-compatible":
-        from langchain_openai import ChatOpenAI
-
-        # Use the OpenAI-compatible configuration
-        # For OpenAI-compatible providers, just use the model name directly (remove prefixes if present)
-        clean_model_name = model_name.replace("openai-compatible:", "").replace("local:", "")
-        return ChatOpenAI(
-            model=clean_model_name,
-            base_url=settings.openai_compatible_url,
-            api_key=settings.openai_compatible_api_key,
-            temperature=0.7,  # Default temperature for OpenAI-compatible models
-        )
+    # Create and return the model using the factory
+    return ModelFactory.create_model(provider, model_name, settings)

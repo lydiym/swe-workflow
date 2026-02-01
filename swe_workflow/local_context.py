@@ -318,17 +318,9 @@ class LocalContextMiddleware(AgentMiddleware):
         info["has_venv"] = (cwd / ".venv").exists() or (cwd / "venv").exists()
         info["has_node_modules"] = (cwd / "node_modules").exists()
 
-        # Detect primary language
-        if (cwd / "pyproject.toml").exists() or (cwd / "setup.py").exists():
-            info["language"] = "python"
-        elif (cwd / "package.json").exists():
-            info["language"] = "javascript/typescript"
-        elif (cwd / "Cargo.toml").exists():
-            info["language"] = "rust"
-        elif (cwd / "go.mod").exists():
-            info["language"] = "go"
-        elif (cwd / "pom.xml").exists() or (cwd / "build.gradle").exists():
-            info["language"] = "java"
+        # Detect primary language using strategy pattern
+        from .language_detection import detect_language
+        info["language"] = detect_language(cwd)
 
         # Detect monorepo patterns
         # Check for common monorepo indicators

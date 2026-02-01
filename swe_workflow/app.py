@@ -281,100 +281,20 @@ class TUI(App):
 
     async def _process_history_message(self, msg, tool_results):
         """Process a single message and create the appropriate widget."""
-        msg_class_name = type(msg).__name__.lower()
-        content = self._extract_message_content(msg)
-
-        if msg.type == "human" or "human" in msg_class_name or "user" in msg_class_name:
-            message_widget = UserMessage(content)
-            await self._mount_message(message_widget)
-        elif (msg.type == "ai" or "ai" in msg_class_name or "assistant" in msg_class_name) and not (hasattr(msg, "tool_calls") and msg.tool_calls):
-            message_widget = AssistantMessage(content)
-            await self._mount_message(message_widget)
-            await message_widget.write_initial_content()
-        elif (msg.type == "ai" or "ai" in msg_class_name or "assistant" in msg_class_name) and hasattr(msg, "tool_calls") and msg.tool_calls:
-            for tc in msg.tool_calls:
-                tool_name = tc.get("name", "unknown")
-                tool_args = tc.get("args", {})
-                tool_call_id = tc.get("id", None)
-
-                # Check if there's a corresponding result for this tool call
-                if tool_call_id and tool_call_id in tool_results:
-                    # There is a result, so create the tool call widget and immediately set its status
-                    message_widget = ToolCallMessage(tool_name=tool_name, args=tool_args)
-                    await self._mount_message(message_widget)
-
-                    # Get the result message and set the status
-                    result_msg = tool_results[tool_call_id]
-                    result_content = self._extract_message_content(result_msg)
-
-                    if hasattr(result_msg, "status") and result_msg.status == "error":
-                        message_widget.set_error(result_content if result_content else "Tool execution failed")
-                    else:
-                        message_widget.set_success(result_content if result_content else "Tool executed successfully")
-                else:
-                    # No result yet, create pending tool call
-                    message_widget = ToolCallMessage(tool_name=tool_name, args=tool_args)
-                    await self._mount_message(message_widget)
-
-                    # Add to current tool messages if we have a UI adapter and tool_call_id
-                    if self._ui_adapter and tool_call_id:
-                        self._ui_adapter._current_tool_messages[tool_call_id] = message_widget
-        elif msg.type == "tool" or "tool" in msg_class_name:
-            # This is a ToolMessage (result from a tool call), but we've already handled it
-            # in the AI message processing above, so we skip it here to avoid duplication
-            return
-        elif msg.type == "system" or "system" in msg_class_name:
-            message_widget = SystemMessage(content)
-            await self._mount_message(message_widget)
-        else:
-            # For other message types, default to system message
-            message_widget = SystemMessage(f"[{msg.type}] {content[:200]}")
-            await self._mount_message(message_widget)
+        # Set the tool results for the message handlers to access
+        self._tool_results = tool_results
+        
+        # Create and use the message handler chain
+        from .message_handlers import create_message_handler_chain
+        handler_chain = create_message_handler_chain()
+        
+        # Handle the message using the chain
+        await handler_chain.handle(msg, self)
 
     def _extract_message_content(self, msg: BaseMessage) -> str:
         """Extract content from a message object, handling various formats."""
-        content = ""
-
-        # Try different ways to extract content from the message
-        if hasattr(msg, "content"):
-            msg_content = getattr(msg, "content", None)
-            if msg_content is not None and msg_content != NotImplemented:
-                if isinstance(msg_content, list):
-                    # Handle content as a list of message parts
-                    for part in msg_content:
-                        if isinstance(part, str):
-                            content += part
-                        elif isinstance(part, dict):
-                            # Handle dictionary content
-                            if "text" in part:
-                                content += str(part["text"])
-                            elif "content" in part:
-                                content += str(part["content"])
-                            else:
-                                content += str(part)
-                        elif hasattr(part, "text"):
-                            content += str(part.text)
-                        elif hasattr(part, "data"):
-                            content += str(part.data)
-                        else:
-                            content += str(part)
-                elif hasattr(msg_content, "__iter__") and not isinstance(msg_content, str):
-                    # Handle other iterable content
-                    try:
-                        content = "".join(str(item) for item in msg_content)
-                    except TypeError:
-                        # If iteration fails, convert to string directly
-                        content = str(msg_content)
-                else:
-                    # Handle simple string content
-                    content = str(msg_content)
-        elif hasattr(msg, "text"):  # For some message types that use 'text' instead of 'content'
-            content = str(getattr(msg, "text", ""))
-        else:
-            # If no known content attribute, convert the whole message to string
-            content = str(msg)
-
-        return content if content else str(msg)
+        from .message_handlers import ContentExtractor
+        return ContentExtractor.extract_content(msg)
 
     def _update_status(self, message: str) -> None:
         """Update the status bar with a message."""
