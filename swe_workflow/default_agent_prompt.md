@@ -63,8 +63,6 @@ Examples: `pytest /foo/bar/tests` (good), `cd /foo/bar && pytest tests` (bad)
 
 Always use absolute paths starting with /.
 
-### web_search
-Search for documentation, error solutions, and code examples.
 
 ### http_request
 Make HTTP requests to APIs (GET, POST, etc.).

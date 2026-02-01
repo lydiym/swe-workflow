@@ -134,7 +134,7 @@ class Settings:
     This class is initialized once at startup and provides access to:
     - Available models and API keys
     - Current project information
-    - Tool availability (e.g., Tavily)
+    - Tool availability
     - File system paths
 
     Attributes:
@@ -142,7 +142,6 @@ class Settings:
 
         openai_api_key: OpenAI API key if available
         anthropic_api_key: Anthropic API key if available
-        tavily_api_key: Tavily API key if available
         langchain_project: LangSmith project name for swe-workflow agent tracing
         user_langchain_project: Original LANGSMITH_PROJECT from environment (for user code)
     """
@@ -151,7 +150,6 @@ class Settings:
     openai_api_key: str | None
     anthropic_api_key: str | None
     google_api_key: str | None
-    tavily_api_key: str | None
     openai_compatible_api_key: str | None
 
     # LangSmith configuration
@@ -182,7 +180,6 @@ class Settings:
         openai_key = os.environ.get("OPENAI_API_KEY")
         anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
         google_key = os.environ.get("GOOGLE_API_KEY")
-        tavily_key = os.environ.get("TAVILY_API_KEY")
         openai_compatible_key = os.environ.get(
             "OPENAI_COMPATIBLE_API_KEY", "sk-openai-compatible"
         )  # Default key for OpenAI-compatible APIs
@@ -206,7 +203,6 @@ class Settings:
             openai_api_key=openai_key,
             anthropic_api_key=anthropic_key,
             google_api_key=google_key,
-            tavily_api_key=tavily_key,
             openai_compatible_api_key=openai_compatible_key,
             openai_compatible_url=openai_compatible_url,
             langchain_project=langchain_project,
@@ -229,10 +225,6 @@ class Settings:
         """Check if Google API key is configured."""
         return self.google_api_key is not None
 
-    @property
-    def has_tavily(self) -> bool:
-        """Check if Tavily API key is configured."""
-        return self.tavily_api_key is not None
 
     @property
     def has_openai_compatible(self) -> bool:

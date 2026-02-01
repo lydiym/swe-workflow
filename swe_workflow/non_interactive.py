@@ -15,7 +15,7 @@ from .file_ops import FileOpTracker
 from .image_utils import create_multimodal_content
 from .input import ImageTracker, parse_file_mentions
 from .sessions import get_checkpointer, generate_thread_id
-from .tools import fetch_url, http_request, web_search
+from .tools import fetch_url, http_request
 
 
 _HITL_REQUEST_ADAPTER = TypeAdapter(dict)  # Simplified for non-interactive mode
@@ -293,8 +293,6 @@ async def run_non_interactive_mode(
     async with get_checkpointer() as checkpointer:
         # Create agent with conditional tools
         tools = [http_request, fetch_url]
-        if settings.has_tavily:
-            tools.append(web_search)
 
         try:
             agent, composite_backend = create_cli_agent(
@@ -362,8 +360,6 @@ async def run_non_interactive_with_resume(
     async with get_checkpointer() as checkpointer:
         # Create agent with conditional tools
         tools = [http_request, fetch_url]
-        if settings.has_tavily:
-            tools.append(web_search)
 
         try:
             agent, composite_backend = create_cli_agent(

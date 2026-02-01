@@ -122,7 +122,7 @@ The filesystem backend is currently operating in: `{cwd}`
 
 Your skills are stored at: `{agent_dir_path}/skills/`
 Skills may contain scripts or supporting files. When executing skill scripts with bash, use the real filesystem path:
-Example: `bash python {agent_dir_path}/skills/web-research/script.py`
+Example: `bash python {agent_dir_path}/skills/code-review/script.py`
 
 ### Human-in-the-Loop Tool Approval
 
@@ -133,18 +133,6 @@ Some tool calls require user approval before execution. When a tool call is reje
 4. Never attempt the exact same rejected command again
 
 Respect the user's decisions and work with them collaboratively.
-
-### Web Search Tool Usage
-
-When you use the web_search tool:
-1. The tool will return search results with titles, URLs, and content excerpts
-2. You MUST read and process these results, then respond naturally to the user
-3. NEVER show raw JSON or tool results directly to the user
-4. Synthesize the information from multiple sources into a coherent answer
-5. Cite your sources by mentioning page titles or URLs when relevant
-6. If the search doesn't find what you need, explain what you found and ask clarifying questions
-
-The user only sees your text responses - not tool results. Always provide a complete, natural language answer after using web_search.
 
 ### Todo List Management
 
@@ -191,15 +179,6 @@ def _format_edit_file_description(
     )
 
 
-def _format_web_search_description(
-    tool_call: ToolCall, _state: AgentState, _runtime: Runtime
-) -> str:
-    """Format web_search tool call for approval prompt."""
-    args = tool_call["args"]
-    query = args.get("query", "unknown")
-    max_results = args.get("max_results", 5)
-
-    return f"Query: {query}\nMax results: {max_results}\n\n⚠️  This will use Tavily API credits"
 
 
 def _format_fetch_url_description(
@@ -274,10 +253,6 @@ def _add_interrupt_on() -> dict[str, InterruptOnConfig]:
         "description": _format_edit_file_description,
     }
 
-    web_search_interrupt_config: InterruptOnConfig = {
-        "allowed_decisions": ["approve", "reject"],
-        "description": _format_web_search_description,
-    }
 
     fetch_url_interrupt_config: InterruptOnConfig = {
         "allowed_decisions": ["approve", "reject"],
@@ -293,7 +268,6 @@ def _add_interrupt_on() -> dict[str, InterruptOnConfig]:
         "execute": execute_interrupt_config,
         "write_file": write_file_interrupt_config,
         "edit_file": edit_file_interrupt_config,
-        "web_search": web_search_interrupt_config,
         "fetch_url": fetch_url_interrupt_config,
         "task": task_interrupt_config,
     }

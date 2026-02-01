@@ -42,7 +42,7 @@ from .sessions import (
     thread_exists,
 )
 from .skills import execute_skills_command, setup_skills_parser
-from .tools import fetch_url, http_request, web_search
+from .tools import fetch_url, http_request
 from .ui import show_help
 
 
@@ -60,10 +60,6 @@ def check_cli_dependencies() -> None:
     except ImportError:
         missing.append("python-dotenv")
 
-    try:
-        import tavily  # noqa: F401
-    except ImportError:
-        missing.append("tavily-python")
 
     try:
         import textual  # noqa: F401
@@ -215,8 +211,6 @@ async def run_textual_cli_async(
     async with get_checkpointer() as checkpointer:
         # Create agent with conditional tools
         tools = [http_request, fetch_url]
-        if settings.has_tavily:
-            tools.append(web_search)
 
         try:
             agent, composite_backend = create_cli_agent(

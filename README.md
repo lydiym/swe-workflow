@@ -4,7 +4,7 @@ The [swe-workflow](https://github.com/lydiym/swe-workflow) CLI is an open source
 
 **Key Features:**
 
-- **Built-in Tools**: File operations (read, write, edit, glob, grep), shell commands, web search, and subagent delegation
+- **Built-in Tools**: File operations (read, write, edit, glob, grep), shell commands, and subagent delegation
 - **Customizable Skills**: Add domain-specific capabilities through a progressive disclosure skill system
 - **Persistent Memory**: Agent remembers your preferences, coding style, and project context across sessions
 - **Project-Aware**: Automatically detects project roots and loads project-specific configurations
@@ -155,7 +155,6 @@ The agent comes with the following built-in tools (always available without conf
 | `glob`        | Find files matching a pattern (e.g., `**/*.py`)   |
 | `grep`        | Search for text patterns across files             |
 | `shell`       | Execute shell commands (local mode)               |
-| `web_search`  | Search the web using Tavily API                   |
 | `fetch_url`   | Fetch and convert web pages to markdown           |
 | `task`        | Delegate work to subagents for parallel execution |
 | `write_todos` | Create and manage task lists for complex work     |
@@ -167,7 +166,7 @@ The agent comes with the following built-in tools (always available without conf
 >
 > - **File operations**: `write_file`, `edit_file`
 > - **Command execution**: `shell`
-> - **External requests**: `web_search`, `fetch_url`
+> - **External requests**: `fetch_url`
 > - **Delegation**: `task` (subagents)
 >
 > Each operation will prompt for approval showing the action details. Use `--auto-approve` to skip prompts:
@@ -198,7 +197,7 @@ Each agent has its own global configuration directory at `~/.swe-workflow/<agent
 ~/.swe-workflow/<agent_name>/
   ├── AGENTS.md              # Auto-loaded global personality/style
   └── skills/               # Auto-loaded agent-specific skills
-      ├── web-research/
+      ├── code-review/
       │   └── SKILL.md
       └── langgraph-docs/
           └── SKILL.md
@@ -300,14 +299,14 @@ Beyond `AGENTS.md`, you can create additional memory files in `.swe-workflow/` f
 
 Skills are reusable agent capabilities that provide specialized workflows and domain knowledge. Example skills are provided in the `examples/skills/` directory:
 
-- **web-research** - Structured web research workflow with planning, parallel delegation, and synthesis
+- **code-review** - Automated code review workflow with best practices and error detection
 - **langgraph-docs** - LangGraph documentation lookup and guidance
 
 To use an example skill globally with the default agent, just copy them to the agent's skills global or project-level skills directory:
 
 ```bash
 mkdir -p ~/.swe-workflow/agent/skills
-cp -r examples/skills/web-research ~/.swe-workflow/agent/skills/
+cp -r examples/skills/code-review ~/.swe-workflow/agent/skills/
 ```
 
 To manage skills:
@@ -326,7 +325,7 @@ swe-workflow skills create my-skill
 swe-workflow skills create my-tool --project
 
 # View detailed information about a skill
-swe-workflow skills info web-research
+swe-workflow skills info code-review
 
 # View info for a project skill only
 swe-workflow skills info my-tool --project
@@ -343,7 +342,7 @@ Skills follow Anthropic's [progressive disclosure pattern](https://www.anthropic
 
 1. **At startup** - SkillsMiddleware scans `~/.swe-workflow/agent/skills/` and `.swe-workflow/skills/` directories
 2. **Parse metadata** - Extracts YAML frontmatter (name + description) from each `SKILL.md` file
-3. **Inject into prompt** - Adds skill list with descriptions to system prompt: "Available Skills: web-research - Use for web research tasks..."
+3. **Inject into prompt** - Adds skill list with descriptions to system prompt: "Available Skills: code-review - Use for code review tasks..."
 4. **Progressive loading** - Agent reads full `SKILL.md` content with `read_file` only when a task matches the skill's description
 5. **Execute workflow** - Agent follows the step-by-step instructions in the skill file
 

@@ -185,7 +185,7 @@ def _create(skill_name: str, agent: str, project: bool = False) -> None:
         console.print(f"[bold red]Error:[/bold red] Invalid skill name: {error_msg}")
         console.print(
             "[dim]Per Agent Skills spec: names must be lowercase alphanumeric with hyphens only.\n"
-            "Examples: web-research, code-review, data-analysis[/dim]",
+            "Examples: code-review, data-analysis, documentation[/dim]",
             style=COLORS["dim"],
         )
         return
@@ -311,10 +311,10 @@ This skill directory can include supporting files referenced in the instructions
         f"  nano {skill_md}\n"
         "\n"
         "💡 See examples/skills/ in the swe-workflow repo for example skills:\n"
-        "   - web-research: Structured research workflow\n"
+        "   - code-review: Automated code review workflow\n"
         "   - langgraph-docs: LangGraph documentation lookup\n"
         "\n"
-        "   Copy an example: cp -r examples/skills/web-research ~/.swe-workflow/agent/skills/\n",
+        "   Copy an example: cp -r examples/skills/code-review ~/.swe-workflow/agent/skills/\n",
         style=COLORS["dim"],
     )
 
@@ -413,7 +413,7 @@ def setup_skills_parser(
         help="Create a new skill",
         description="Create a new skill with a template SKILL.md file",
     )
-    create_parser.add_argument("name", help="Name of the skill to create (e.g., web-research)")
+    create_parser.add_argument("name", help="Name of the skill to create (e.g., code-review)")
     create_parser.add_argument(
         "--agent",
         default="agent",
@@ -479,8 +479,8 @@ def execute_skills_command(args: argparse.Namespace) -> None:
         console.print("  info <name>       Show detailed information about a skill")
         console.print("\n[bold]Examples:[/bold]", style=COLORS["primary"])
         console.print("  swe-workflow skills list")
-        console.print("  swe-workflow skills create web-research")
-        console.print("  swe-workflow skills info web-research")
+        console.print("  swe-workflow skills create code-review")
+        console.print("  swe-workflow skills info code-review")
         console.print("\n[dim]For more help on a specific command:[/dim]", style=COLORS["dim"])
         console.print("  swe-workflow skills <command> --help", style=COLORS["dim"])
 

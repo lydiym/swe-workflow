@@ -17,14 +17,14 @@ class TestValidateSkillName:
         no consecutive hyphens, max 64 chars.
         """
         valid_names = [
-            "web-research",
+            "code-review",
             "langgraph-docs",
             "skill123",
             "skill-with-many-parts",
             "a",
             "a1",
-            "code-review",
             "data-analysis",
+            "documentation",
         ]
         for name in valid_names:
             is_valid, error = _validate_name(name)
