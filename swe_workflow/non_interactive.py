@@ -44,6 +44,7 @@ async def execute_task_non_interactive(
     Returns:
         bool: True if successful, False otherwise
     """
+    from .non_interactive_handlers import create_message_type_handler_chain
     try:
         # Parse file mentions and inject content if any
         prompt_text, mentioned_files = parse_file_mentions(user_input)
@@ -95,6 +96,7 @@ async def execute_task_non_interactive(
 
         stream_input: dict | Command = {"messages": [{"role": "user", "content": message_content}]}
 
+
         while True:
             interrupt_occurred = False
             hitl_response: dict[str, Any] = {}
@@ -132,8 +134,9 @@ async def execute_task_non_interactive(
                     if chunk_data and isinstance(chunk_data, dict) and "todos" in chunk_data:
                         pass  # Future: handle todo updates
 
-                # Handle MESSAGES stream - for content and tool calls
+                # Handle MESSAGES stream - for content and tool calls using strategy pattern
                 elif current_stream_mode == "messages":
+                    
                     # Skip subagent outputs - only process main agent content
                     if not is_main_agent:
                         continue
@@ -143,101 +146,9 @@ async def execute_task_non_interactive(
 
                     message, _metadata = data
 
-                    # Process tool messages
-                    if isinstance(message, ToolMessage):
-                        tool_name = getattr(message, "name", "")
-                        tool_status = getattr(message, "status", "success")
-                        tool_content = getattr(message, "content", "")
-
-                        # Print tool execution results
-                        print(f"[TOOL] {tool_name}: {tool_content[:200]}..." if len(str(tool_content)) > 200 else f"[TOOL] {tool_name}: {tool_content}")
-
-                        # Complete file operation tracking
-                        record = file_op_tracker.complete_with_message(message)
-
-                        # Update tool call status
-                        tool_id = getattr(message, "tool_call_id", None)
-                        if tool_id:
-                            # Print tool result
-                            if tool_status == "success":
-                                print(f"[SUCCESS] Tool {tool_name} completed successfully")
-                            else:
-                                print(f"[ERROR] Tool {tool_name} failed: {tool_content}")
-                        # Add a newline after tool output to separate from agent response
-                        print()
-
-                    # Process text content from AI messages
-                    if isinstance(message, (AIMessageChunk, AIMessage)):
-                        for block in message.content_blocks:
-                            block_type = block.get("type")
-
-                            if block_type == "text":
-                                text = block.get("text", "")
-                                if text:
-                                    print(text, end="", flush=True)
-
-                            elif block_type in ("tool_call_chunk", "tool_call"):
-                                chunk_name = block.get("name")
-                                chunk_args = block.get("args")
-                                chunk_id = block.get("id")
-                                chunk_index = block.get("index")
-
-                                buffer_key: str | int
-                                if chunk_index is not None:
-                                    buffer_key = chunk_index
-                                elif chunk_id is not None:
-                                    buffer_key = chunk_id
-                                else:
-                                    buffer_key = f"unknown-{len(tool_call_buffers)}"
-
-                                buffer = tool_call_buffers.setdefault(
-                                    buffer_key,
-                                    {"name": None, "id": None, "args": None, "args_parts": []},
-                                )
-
-                                if chunk_name:
-                                    buffer["name"] = chunk_name
-                                if chunk_id:
-                                    buffer["id"] = chunk_id
-
-                                if isinstance(chunk_args, dict):
-                                    buffer["args"] = chunk_args
-                                    buffer["args_parts"] = []
-                                elif isinstance(chunk_args, str):
-                                    if chunk_args:
-                                        parts: list[str] = buffer.setdefault("args_parts", [])
-                                        if not parts or chunk_args != parts[-1]:
-                                            parts.append(chunk_args)
-                                        buffer["args"] = "".join(parts)
-                                elif chunk_args is not None:
-                                    buffer["args"] = chunk_args
-
-                                buffer_name = buffer.get("name")
-                                buffer_id = buffer.get("id")
-                                if buffer_name is None:
-                                    continue
-
-                                parsed_args = buffer.get("args")
-                                if isinstance(parsed_args, str):
-                                    if not parsed_args:
-                                        continue
-                                    try:
-                                        parsed_args = json.loads(parsed_args)
-                                    except Exception:
-                                        continue
-                                elif parsed_args is None:
-                                    continue
-
-                                if not isinstance(parsed_args, dict):
-                                    parsed_args = {"value": parsed_args}
-
-                                if buffer_id is not None:
-                                    file_op_tracker.start_operation(buffer_name, parsed_args, buffer_id)
-
-                                    # Print tool call
-                                    print(f"\n[CALLING] {buffer_name} with args: {parsed_args}")
-
-                                tool_call_buffers.pop(buffer_key, None)
+                    # Process message using the handler chain
+                    handler_chain = create_message_type_handler_chain()
+                    handler_chain.handle(message, file_op_tracker, tool_call_buffers, print)
 
             # Handle HITL after stream completes
             if interrupt_occurred:
