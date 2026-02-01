@@ -152,87 +152,13 @@ def build_approval_preview(
     assistant_id: str | None,
 ) -> ApprovalPreview | None:
     """Collect summary info and diff for HITL approvals."""
-    path_str = str(args.get("file_path") or args.get("path") or "")
-    display_path = format_display_path(path_str)
-    physical_path = resolve_physical_path(path_str, assistant_id)
-
-    if tool_name == "write_file":
-        content = str(args.get("content", ""))
-        before = _safe_read(physical_path) if physical_path and physical_path.exists() else ""
-        after = content
-        diff = compute_unified_diff(before or "", after, display_path, max_lines=100)
-        additions = 0
-        if diff:
-            additions = sum(
-                1
-                for line in diff.splitlines()
-                if line.startswith("+") and not line.startswith("+++")
-            )
-        total_lines = _count_lines(after)
-        details = [
-            f"File: {path_str}",
-            "Action: Create new file" + (" (overwrites existing content)" if before else ""),
-            f"Lines to write: {additions or total_lines}",
-        ]
-        return ApprovalPreview(
-            title=f"Write {display_path}",
-            details=details,
-            diff=diff,
-            diff_title=f"Diff {display_path}",
-        )
-
-    if tool_name == "edit_file":
-        if physical_path is None:
-            return ApprovalPreview(
-                title=f"Update {display_path}",
-                details=[f"File: {path_str}", "Action: Replace text"],
-                error="Unable to resolve file path.",
-            )
-        before = _safe_read(physical_path)
-        if before is None:
-            return ApprovalPreview(
-                title=f"Update {display_path}",
-                details=[f"File: {path_str}", "Action: Replace text"],
-                error="Unable to read current file contents.",
-            )
-        old_string = str(args.get("old_string", ""))
-        new_string = str(args.get("new_string", ""))
-        replace_all = bool(args.get("replace_all", False))
-        replacement = perform_string_replacement(before, old_string, new_string, replace_all)
-        if isinstance(replacement, str):
-            return ApprovalPreview(
-                title=f"Update {display_path}",
-                details=[f"File: {path_str}", "Action: Replace text"],
-                error=replacement,
-            )
-        after, occurrences = replacement
-        diff = compute_unified_diff(before, after, display_path, max_lines=None)
-        additions = 0
-        deletions = 0
-        if diff:
-            additions = sum(
-                1
-                for line in diff.splitlines()
-                if line.startswith("+") and not line.startswith("+++")
-            )
-            deletions = sum(
-                1
-                for line in diff.splitlines()
-                if line.startswith("-") and not line.startswith("---")
-            )
-        details = [
-            f"File: {path_str}",
-            f"Action: Replace text ({'all occurrences' if replace_all else 'single occurrence'})",
-            f"Occurrences matched: {occurrences}",
-            f"Lines changed: +{additions} / -{deletions}",
-        ]
-        return ApprovalPreview(
-            title=f"Update {display_path}",
-            details=details,
-            diff=diff,
-            diff_title=f"Diff {display_path}",
-        )
-
+    # Use the handler registry to find the appropriate handler for the tool
+    from .tool_handlers.registry import registry
+    handler = registry.get_handler(tool_name)
+    if handler:
+        return handler.build_approval_preview(args, assistant_id)
+    
+    # If no specific handler exists, return None
     return None
 
 

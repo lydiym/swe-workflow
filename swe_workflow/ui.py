@@ -30,107 +30,13 @@ def format_tool_display(tool_name: str, tool_args: dict) -> str:
         read_file(path="/long/path/file.py") → "read_file(file.py)"
         shell(command="pip install foo") → 'shell("pip install foo")'
     """
-
-    def abbreviate_path(path_str: str, max_length: int = 60) -> str:
-        """Abbreviate a file path intelligently - show basename or relative path."""
-        try:
-            path = Path(path_str)
-
-            # If it's just a filename (no directory parts), return as-is
-            if len(path.parts) == 1:
-                return path_str
-
-            # Try to get relative path from current working directory
-            try:
-                rel_path = path.relative_to(Path.cwd())
-                rel_str = str(rel_path)
-                # Use relative if it's shorter and not too long
-                if len(rel_str) < len(path_str) and len(rel_str) <= max_length:
-                    return rel_str
-            except (ValueError, Exception):
-                pass
-
-            # If absolute path is reasonable length, use it
-            if len(path_str) <= max_length:
-                return path_str
-
-            # Otherwise, just show basename (filename only)
-            return path.name
-        except Exception:
-            # Fallback to original string if any error
-            return truncate_value(path_str, max_length)
-
-    # Tool-specific formatting - show the most important argument(s)
-    if tool_name in ("read_file", "write_file", "edit_file"):
-        # File operations: show the primary file path argument (file_path or path)
-        path_value = tool_args.get("file_path")
-        if path_value is None:
-            path_value = tool_args.get("path")
-        if path_value is not None:
-            path = abbreviate_path(str(path_value))
-            return f"{tool_name}({path})"
-
-
-    elif tool_name == "grep":
-        # Grep: show the search pattern
-        if "pattern" in tool_args:
-            pattern = str(tool_args["pattern"])
-            pattern = truncate_value(pattern, 70)
-            return f'{tool_name}("{pattern}")'
-
-    elif tool_name == "shell":
-        # Shell: show the command being executed
-        if "command" in tool_args:
-            command = str(tool_args["command"])
-            command = truncate_value(command, 120)
-            return f'{tool_name}("{command}")'
-
-    elif tool_name == "ls":
-        # ls: show directory, or empty if current directory
-        if tool_args.get("path"):
-            path = abbreviate_path(str(tool_args["path"]))
-            return f"{tool_name}({path})"
-        return f"{tool_name}()"
-
-    elif tool_name == "glob":
-        # Glob: show the pattern
-        if "pattern" in tool_args:
-            pattern = str(tool_args["pattern"])
-            pattern = truncate_value(pattern, 80)
-            return f'{tool_name}("{pattern}")'
-
-    elif tool_name == "http_request":
-        # HTTP: show method and URL
-        parts = []
-        if "method" in tool_args:
-            parts.append(str(tool_args["method"]).upper())
-        if "url" in tool_args:
-            url = str(tool_args["url"])
-            url = truncate_value(url, 80)
-            parts.append(url)
-        if parts:
-            return f"{tool_name}({' '.join(parts)})"
-
-    elif tool_name == "fetch_url":
-        # Fetch URL: show the URL being fetched
-        if "url" in tool_args:
-            url = str(tool_args["url"])
-            url = truncate_value(url, 80)
-            return f'{tool_name}("{url}")'
-
-    elif tool_name == "task":
-        # Task: show the task description
-        if "description" in tool_args:
-            desc = str(tool_args["description"])
-            desc = truncate_value(desc, 100)
-            return f'{tool_name}("{desc}")'
-
-    elif tool_name == "write_todos":
-        # Todos: show count of items
-        if "todos" in tool_args and isinstance(tool_args["todos"], list):
-            count = len(tool_args["todos"])
-            return f"{tool_name}({count} items)"
-
+    # Use the handler registry to find the appropriate handler for the tool
+    # Import here to avoid circular import issues
+    from .tool_handlers.registry import registry
+    handler = registry.get_handler(tool_name)
+    if handler:
+        return handler.format_display(tool_args)
+    
     # Fallback: generic formatting for unknown tools
     # Show all arguments in key=value format
     args_str = ", ".join(f"{k}={truncate_value(str(v), 50)}" for k, v in tool_args.items())

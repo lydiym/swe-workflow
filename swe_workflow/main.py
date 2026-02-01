@@ -257,26 +257,11 @@ def cli_main() -> None:
     try:
         args = parse_args()
 
-        if args.command == "help":
-            show_help()
-        elif args.command == "list":
-            list_agents()
-        elif args.command == "reset":
-            reset_agent(args.agent, args.source_agent)
-        elif args.command == "skills":
-            execute_skills_command(args)
-        elif args.command == "threads":
-            if args.threads_command == "list":
-                asyncio.run(
-                    list_threads_command(
-                        agent_name=getattr(args, "agent", None),
-                        limit=getattr(args, "limit", 20),
-                    )
-                )
-            elif args.threads_command == "delete":
-                asyncio.run(delete_thread_command(args.thread_id))
-            else:
-                console.print("[yellow]Usage: swe-workflow threads <list|delete>[/yellow]")
+        # Use the command handler registry to execute the appropriate command
+        from .command_handlers.registry import registry
+        
+        if registry.execute_command(args.command, args):
+            pass  # Command was executed successfully
         else:
             # Check if running in non-interactive mode
             if args.non_interactive:

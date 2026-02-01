@@ -462,27 +462,27 @@ def execute_skills_command(args: argparse.Namespace) -> None:
             )
             return
 
-    if args.skills_command == "list":
-        _list(agent=args.agent, project=args.project)
-    elif args.skills_command == "create":
-        _create(args.name, agent=args.agent, project=args.project)
-    elif args.skills_command == "info":
-        _info(args.name, agent=args.agent, project=args.project)
-    else:
-        # No subcommand provided, show help
-        console.print("[yellow]Please specify a skills subcommand: list, create, or info[/yellow]")
-        console.print("\n[bold]Usage:[/bold]", style=COLORS["primary"])
-        console.print("  swe-workflow skills <command> [options]\n")
-        console.print("[bold]Available commands:[/bold]", style=COLORS["primary"])
-        console.print("  list              List all available skills")
-        console.print("  create <name>     Create a new skill")
-        console.print("  info <name>       Show detailed information about a skill")
-        console.print("\n[bold]Examples:[/bold]", style=COLORS["primary"])
-        console.print("  swe-workflow skills list")
-        console.print("  swe-workflow skills create code-review")
-        console.print("  swe-workflow skills info code-review")
-        console.print("\n[dim]For more help on a specific command:[/dim]", style=COLORS["dim"])
-        console.print("  swe-workflow skills <command> --help", style=COLORS["dim"])
+    # Use the command handler registry to execute the appropriate command
+    from ..command_handlers.registry import registry
+    
+    # If command was executed successfully, return
+    if registry.execute_command(args.skills_command, args):
+        return
+
+    # No subcommand provided, show help
+    console.print("[yellow]Please specify a skills subcommand: list, create, or info[/yellow]")
+    console.print("\n[bold]Usage:[/bold]", style=COLORS["primary"])
+    console.print("  swe-workflow skills <command> [options]\n")
+    console.print("[bold]Available commands:[/bold]", style=COLORS["primary"])
+    console.print("  list              List all available skills")
+    console.print("  create <name>     Create a new skill")
+    console.print("  info <name>       Show detailed information about a skill")
+    console.print("\n[bold]Examples:[/bold]", style=COLORS["primary"])
+    console.print("  swe-workflow skills list")
+    console.print("  swe-workflow skills create code-review")
+    console.print("  swe-workflow skills info code-review")
+    console.print("\n[dim]For more help on a specific command:[/dim]", style=COLORS["dim"])
+    console.print("  swe-workflow skills <command> --help", style=COLORS["dim"])
 
 
 __all__ = [
