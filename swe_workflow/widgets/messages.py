@@ -56,7 +56,7 @@ class UserMessage(Static):
         """Compose the user message layout."""
         # Use Text object to combine styled prefix with unstyled user content
         text = Text()
-        text.append("> ", style="bold #10b981")
+        text.append("> ", style="bold #ca8a04")
         text.append(self._content)
         yield Static(text)
 
@@ -349,9 +349,7 @@ class ToolCallMessage(Vertical):
             total_chars = len(output_stripped)
 
             # Truncate if too many lines OR too many characters
-            needs_truncation = (
-                total_lines > self._PREVIEW_LINES or total_chars > self._PREVIEW_CHARS
-            )
+            needs_truncation = total_lines > self._PREVIEW_LINES or total_chars > self._PREVIEW_CHARS
 
             if self._expanded:
                 # Show full output
@@ -425,8 +423,8 @@ class DiffMessage(Static):
     }
 
     DiffMessage .diff-add {
-        color: #10b981;
-        background: #10b98120;
+        color: #ca8a04;
+        background: #ca8a0420;
     }
 
     DiffMessage .diff-remove {

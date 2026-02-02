@@ -51,7 +51,7 @@ class StatusBar(Horizontal):
     }
 
     StatusBar .status-auto-approve.on {
-        background: #10b981;
+        background: #ca8a04;
         color: black;
     }
 

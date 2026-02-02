@@ -176,9 +176,7 @@ def parse_image_placeholders(text: str) -> tuple[str, int]:
     return text, len(matches)
 
 
-def get_bottom_toolbar(
-    session_state: SessionState, session_ref: dict
-) -> Callable[[], list[tuple[str, str]]]:
+def get_bottom_toolbar(session_state: SessionState, session_ref: dict) -> Callable[[], list[tuple[str, str]]]:
     """Return toolbar function that shows auto-approve status and BASH MODE."""
 
     def toolbar() -> list[tuple[str, str]]:
@@ -221,9 +219,7 @@ def get_bottom_toolbar(
     return toolbar
 
 
-def create_prompt_session(
-    _assistant_id: str, session_state: SessionState, image_tracker: ImageTracker | None = None
-) -> PromptSession:
+def create_prompt_session(_assistant_id: str, session_state: SessionState, image_tracker: ImageTracker | None = None) -> PromptSession:
     """Create a configured PromptSession with all features."""
     # Set default editor if not already set
     if "EDITOR" not in os.environ:
@@ -258,10 +254,7 @@ def create_prompt_session(
         app_ref = app
 
         def clear_hint() -> None:
-            if (
-                session_state.exit_hint_until is not None
-                and time.monotonic() >= session_state.exit_hint_until
-            ):
+            if session_state.exit_hint_until is not None and time.monotonic() >= session_state.exit_hint_until:
                 session_state.exit_hint_until = None
                 session_state.exit_hint_handle = None
                 app_ref.invalidate()
@@ -396,7 +389,7 @@ def create_prompt_session(
     toolbar_style = Style.from_dict(
         {
             "bottom-toolbar": "noreverse",  # Disable default reverse video
-            "toolbar-green": "bg:#10b981 #000000",  # Green for auto-accept ON
+            "toolbar-green": "bg:#ca8a04 #000000",  # Green for auto-accept ON
             "toolbar-orange": "bg:#f59e0b #000000",  # Orange for manual accept
             "toolbar-exit": "bg:#2563eb #ffffff",  # Blue for exit hint
         }
@@ -416,9 +409,7 @@ def create_prompt_session(
         complete_in_thread=True,  # Async completion prevents menu freezing
         mouse_support=False,
         enable_open_in_editor=True,  # Allow Ctrl+X Ctrl+E to open external editor
-        bottom_toolbar=get_bottom_toolbar(
-            session_state, session_ref
-        ),  # Persistent status bar at bottom
+        bottom_toolbar=get_bottom_toolbar(session_state, session_ref),  # Persistent status bar at bottom
         style=toolbar_style,  # Apply toolbar styling
         reserve_space_for_menu=7,  # Reserve space for completion menu to show 5-6 results
     )

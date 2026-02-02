@@ -18,6 +18,7 @@ from textual.binding import Binding, BindingType
 from textual.containers import Container, VerticalScroll
 from textual.css.query import NoMatches
 from textual.events import Click, MouseUp  # noqa: TC002 - used in type annotation
+from textual.theme import Theme
 from textual.widget import Widget
 from textual.widgets import Static  # noqa: TC002 - used at runtime
 
@@ -36,10 +37,30 @@ from .widgets.messages import (
 from .widgets.status import StatusBar
 from .widgets.welcome import WelcomeBanner
 
+
 if TYPE_CHECKING:
     from langgraph.pregel import Pregel
     from textual.app import ComposeResult
     from textual.worker import Worker
+
+
+custom_atom_one_dark_theme = Theme(
+    name="custom-atom-one-dark",
+    primary="#ca8a04",
+    secondary="#61AFEF",
+    warning="#FF9800",  # Instead of #DEB25B
+    error="#F06262",
+    success="#62F062",
+    accent="#A378C2",
+    foreground="#ABB2BF",
+    background="#282C34",
+    surface="#3B414D",
+    panel="#4F5666",
+    boost=None,
+    dark=True,
+    luminosity_spread=0.15,
+    text_alpha=0.95,
+)
 
 
 class TextualTokenTracker:
@@ -190,6 +211,9 @@ class TUI(App):
 
     async def on_mount(self) -> None:
         """Initialize components after mount."""
+        self.register_theme(custom_atom_one_dark_theme)
+        self.theme = "custom-atom-one-dark"
+
         self._status_bar = self.query_one("#status-bar", StatusBar)
         self._chat_input = self.query_one("#input-area", ChatInput)
 
@@ -283,17 +307,19 @@ class TUI(App):
         """Process a single message and create the appropriate widget."""
         # Set the tool results for the message handlers to access
         self._tool_results = tool_results
-        
+
         # Create and use the message handler chain
         from .message_handlers import create_message_handler_chain
+
         handler_chain = create_message_handler_chain()
-        
+
         # Handle the message using the chain
         await handler_chain.handle(msg, self)
 
     def _extract_message_content(self, msg: BaseMessage) -> str:
         """Extract content from a message object, handling various formats."""
         from .message_handlers import ContentExtractor
+
         return ContentExtractor.extract_content(msg)
 
     def _update_status(self, message: str) -> None:
