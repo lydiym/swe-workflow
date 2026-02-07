@@ -50,7 +50,7 @@ def _abbreviate_path(path_str: str, max_length: int = 60) -> str:
 
 class ShellHandler(ToolHandler):
     """Handler for shell tool operations."""
-    
+
     @property
     def tool_name(self) -> str:
         return "shell"
@@ -73,7 +73,7 @@ class ShellHandler(ToolHandler):
 
 class GrepHandler(ToolHandler):
     """Handler for grep tool operations."""
-    
+
     @property
     def tool_name(self) -> str:
         return "grep"
@@ -96,7 +96,7 @@ class GrepHandler(ToolHandler):
 
 class LsHandler(ToolHandler):
     """Handler for ls tool operations."""
-    
+
     @property
     def tool_name(self) -> str:
         return "ls"
@@ -116,7 +116,7 @@ class LsHandler(ToolHandler):
 
 class GlobHandler(ToolHandler):
     """Handler for glob tool operations."""
-    
+
     @property
     def tool_name(self) -> str:
         return "glob"
@@ -139,7 +139,7 @@ class GlobHandler(ToolHandler):
 
 class HttpRequestHandler(ToolHandler):
     """Handler for http_request tool operations."""
-    
+
     @property
     def tool_name(self) -> str:
         return "http_request"
@@ -167,7 +167,7 @@ class HttpRequestHandler(ToolHandler):
 
 class FetchUrlHandler(ToolHandler):
     """Handler for fetch_url tool operations."""
-    
+
     @property
     def tool_name(self) -> str:
         return "fetch_url"
@@ -190,7 +190,7 @@ class FetchUrlHandler(ToolHandler):
 
 class TaskHandler(ToolHandler):
     """Handler for task tool operations."""
-    
+
     @property
     def tool_name(self) -> str:
         return "task"
@@ -213,7 +213,7 @@ class TaskHandler(ToolHandler):
 
 class WriteTodosHandler(ToolHandler):
     """Handler for write_todos tool operations."""
-    
+
     @property
     def tool_name(self) -> str:
         return "write_todos"

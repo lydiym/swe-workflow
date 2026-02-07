@@ -1,11 +1,6 @@
 """Registry initialization for all command handlers."""
 
 from .base import registry
-from .skills_commands import (
-    SkillsListCommandHandler,
-    SkillsCreateCommandHandler,
-    SkillsInfoCommandHandler,
-)
 from .main_commands import (
     HelpCommandHandler,
     ListCommandHandler,
@@ -13,9 +8,14 @@ from .main_commands import (
     SkillsCommandHandler,
     ThreadsCommandHandler,
 )
+from .skills_commands import (
+    SkillsCreateCommandHandler,
+    SkillsInfoCommandHandler,
+    SkillsListCommandHandler,
+)
 from .threads_commands import (
-    ThreadsListCommandHandler,
     ThreadsDeleteCommandHandler,
+    ThreadsListCommandHandler,
 )
 
 
@@ -33,7 +33,7 @@ def initialize_registry():
         ThreadsListCommandHandler(),
         ThreadsDeleteCommandHandler(),
     ]
-    
+
     for handler in handlers:
         registry.register(handler)
 
@@ -42,4 +42,4 @@ def initialize_registry():
 initialize_registry()
 
 
-__all__ = ['registry']
+__all__ = ["registry"]

@@ -47,7 +47,7 @@ def _abbreviate_path(path_str: str, max_length: int = 60) -> str:
 
 class WriteFileHandler(ToolHandler):
     """Handler for write_file tool operations."""
-    
+
     @property
     def tool_name(self) -> str:
         return "write_file"
@@ -57,18 +57,14 @@ class WriteFileHandler(ToolHandler):
         path_str = str(args.get("file_path") or args.get("path") or "")
         display_path = format_display_path(path_str)
         physical_path = resolve_physical_path(path_str, assistant_id)
-        
+
         content = str(args.get("content", ""))
         before = _safe_read(physical_path) if physical_path and physical_path.exists() else ""
         after = content
         diff = compute_unified_diff(before or "", after, display_path, max_lines=100)
         additions = 0
         if diff:
-            additions = sum(
-                1
-                for line in diff.splitlines()
-                if line.startswith("+") and not line.startswith("+++")
-            )
+            additions = sum(1 for line in diff.splitlines() if line.startswith("+") and not line.startswith("+++"))
         total_lines = _count_lines(after)
         details = [
             f"File: {path_str}",
@@ -98,7 +94,7 @@ class WriteFileHandler(ToolHandler):
 
 class EditFileHandler(ToolHandler):
     """Handler for edit_file tool operations."""
-    
+
     @property
     def tool_name(self) -> str:
         return "edit_file"
@@ -108,7 +104,7 @@ class EditFileHandler(ToolHandler):
         path_str = str(args.get("file_path") or args.get("path") or "")
         display_path = format_display_path(path_str)
         physical_path = resolve_physical_path(path_str, assistant_id)
-        
+
         if physical_path is None:
             return ApprovalPreview(
                 title=f"Update {display_path}",
@@ -137,16 +133,8 @@ class EditFileHandler(ToolHandler):
         additions = 0
         deletions = 0
         if diff:
-            additions = sum(
-                1
-                for line in diff.splitlines()
-                if line.startswith("+") and not line.startswith("+++")
-            )
-            deletions = sum(
-                1
-                for line in diff.splitlines()
-                if line.startswith("-") and not line.startswith("---")
-            )
+            additions = sum(1 for line in diff.splitlines() if line.startswith("+") and not line.startswith("+++"))
+            deletions = sum(1 for line in diff.splitlines() if line.startswith("-") and not line.startswith("---"))
         details = [
             f"File: {path_str}",
             f"Action: Replace text ({'all occurrences' if replace_all else 'single occurrence'})",
@@ -176,7 +164,7 @@ class EditFileHandler(ToolHandler):
 
 class ReadFileHandler(ToolHandler):
     """Handler for read_file tool operations."""
-    
+
     @property
     def tool_name(self) -> str:
         return "read_file"

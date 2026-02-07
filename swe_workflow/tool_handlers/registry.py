@@ -1,14 +1,14 @@
 """Registry initialization for all tool handlers."""
 
 from .base import registry
-from .file_operations import WriteFileHandler, EditFileHandler, ReadFileHandler
+from .file_operations import EditFileHandler, ReadFileHandler, WriteFileHandler
 from .general_tools import (
-    ShellHandler,
-    GrepHandler,
-    LsHandler,
-    GlobHandler,
-    HttpRequestHandler,
     FetchUrlHandler,
+    GlobHandler,
+    GrepHandler,
+    HttpRequestHandler,
+    LsHandler,
+    ShellHandler,
     TaskHandler,
     WriteTodosHandler,
 )
@@ -29,7 +29,7 @@ def initialize_registry():
         TaskHandler(),
         WriteTodosHandler(),
     ]
-    
+
     for handler in handlers:
         registry.register(handler)
 
@@ -38,4 +38,4 @@ def initialize_registry():
 initialize_registry()
 
 
-__all__ = ['registry']
+__all__ = ["registry"]

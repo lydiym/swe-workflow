@@ -180,9 +180,7 @@ class Settings:
         openai_key = os.environ.get("OPENAI_API_KEY")
         anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
         google_key = os.environ.get("GOOGLE_API_KEY")
-        openai_compatible_key = os.environ.get(
-            "OPENAI_COMPATIBLE_API_KEY", "sk-openai-compatible"
-        )  # Default key for OpenAI-compatible APIs
+        openai_compatible_key = os.environ.get("OPENAI_COMPATIBLE_API_KEY", "sk-openai-compatible")  # Default key for OpenAI-compatible APIs
 
         # Detect OpenAI-compatible API configuration
         # Check for new environment variable first, then fall back to old one for backward compatibility
@@ -224,7 +222,6 @@ class Settings:
     def has_google(self) -> bool:
         """Check if Google API key is configured."""
         return self.google_api_key is not None
-
 
     @property
     def has_openai_compatible(self) -> bool:
@@ -293,10 +290,7 @@ class Settings:
             Path to ~/.swe-workflow/{agent_name}
         """
         if not self._is_valid_agent_name(agent_name):
-            msg = (
-                f"Invalid agent name: {agent_name!r}. "
-                "Agent names can only contain letters, numbers, hyphens, underscores, and spaces."
-            )
+            msg = f"Invalid agent name: {agent_name!r}. Agent names can only contain letters, numbers, hyphens, underscores, and spaces."
             raise ValueError(msg)
         return Path.home() / ".swe-workflow" / agent_name
 
@@ -310,10 +304,7 @@ class Settings:
             Path to ~/.swe-workflow/{agent_name}
         """
         if not self._is_valid_agent_name(agent_name):
-            msg = (
-                f"Invalid agent name: {agent_name!r}. "
-                "Agent names can only contain letters, numbers, hyphens, underscores, and spaces."
-            )
+            msg = f"Invalid agent name: {agent_name!r}. Agent names can only contain letters, numbers, hyphens, underscores, and spaces."
             raise ValueError(msg)
         agent_dir = self.get_agent_dir(agent_name)
         agent_dir.mkdir(parents=True, exist_ok=True)
@@ -464,20 +455,20 @@ def create_model(model_name_override: str | None = None) -> BaseChatModel:
     Raises:
         SystemExit if no API key is configured or model provider can't be determined
     """
-    from .model_selection import create_model_selection_chain, ModelFactory
-    
+    from .model_selection import ModelFactory, create_model_selection_chain
+
     # Create the chain of model selection strategies
     chain = create_model_selection_chain(settings, console)
-    
+
     # Execute the chain to get provider and model name
     result = chain.execute(model_name_override)
     if result is None:
         # This should not happen if the chain is properly implemented, but added for safety
         console.print("[bold red]Error:[/bold red] Could not determine model provider.")
         sys.exit(1)
-    
+
     provider, model_name = result
-    
+
     # Store model info in settings for display
     settings.model_name = model_name
     settings.model_provider = provider

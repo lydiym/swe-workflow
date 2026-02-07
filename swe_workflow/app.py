@@ -4,14 +4,13 @@
 from __future__ import annotations
 
 import asyncio
-from collections import defaultdict
 import contextlib
 import subprocess
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from langchain_core.messages import AIMessage, BaseMessage, ChatMessage, human
+from langchain_core.messages import BaseMessage
 from langchain_core.runnables import RunnableConfig
 from textual.app import App
 from textual.binding import Binding, BindingType
@@ -36,7 +35,6 @@ from .widgets.messages import (
 )
 from .widgets.status import StatusBar
 from .widgets.welcome import WelcomeBanner
-
 
 if TYPE_CHECKING:
     from langgraph.pregel import Pregel

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from argparse import Namespace
 
 from swe_workflow.command_handlers.base import CommandHandler
@@ -10,7 +9,7 @@ from swe_workflow.command_handlers.base import CommandHandler
 
 class HelpCommandHandler(CommandHandler):
     """Handler for the 'help' command."""
-    
+
     @property
     def command_name(self) -> str:
         return "help"
@@ -18,12 +17,13 @@ class HelpCommandHandler(CommandHandler):
     def execute(self, args: Namespace) -> None:
         """Execute the help command."""
         from swe_workflow.ui import show_help
+
         show_help()
 
 
 class ListCommandHandler(CommandHandler):
     """Handler for the 'list' command."""
-    
+
     @property
     def command_name(self) -> str:
         return "list"
@@ -31,12 +31,13 @@ class ListCommandHandler(CommandHandler):
     def execute(self, args: Namespace) -> None:
         """Execute the list command."""
         from swe_workflow.agent import list_agents
+
         list_agents()
 
 
 class ResetCommandHandler(CommandHandler):
     """Handler for the 'reset' command."""
-    
+
     @property
     def command_name(self) -> str:
         return "reset"
@@ -44,12 +45,13 @@ class ResetCommandHandler(CommandHandler):
     def execute(self, args: Namespace) -> None:
         """Execute the reset command."""
         from swe_workflow.agent import reset_agent
-        reset_agent(args.agent, getattr(args, 'source_agent', None))
+
+        reset_agent(args.agent, getattr(args, "source_agent", None))
 
 
 class SkillsCommandHandler(CommandHandler):
     """Handler for the 'skills' command."""
-    
+
     @property
     def command_name(self) -> str:
         return "skills"
@@ -57,18 +59,20 @@ class SkillsCommandHandler(CommandHandler):
     def execute(self, args: Namespace) -> None:
         """Execute the skills command."""
         from swe_workflow.skills.commands import execute_skills_command
+
         execute_skills_command(args)
 
 
 class ThreadsCommandHandler(CommandHandler):
     """Handler for the 'threads' command that delegates to subcommand handlers."""
-    
+
     def __init__(self):
         """Initialize with subcommand handlers."""
         from .registry import registry
+
         self._list_handler = registry.get_handler("threads_list")
         self._delete_handler = registry.get_handler("threads_delete")
-    
+
     @property
     def command_name(self) -> str:
         return "threads"
@@ -76,8 +80,9 @@ class ThreadsCommandHandler(CommandHandler):
     def execute(self, args: Namespace) -> None:
         """Execute the threads command by delegating to appropriate subcommand handler."""
         from ..config import console
-        threads_command = getattr(args, 'threads_command', None)
-        
+
+        threads_command = getattr(args, "threads_command", None)
+
         if threads_command == "list":
             if self._list_handler:
                 self._list_handler.execute(args)

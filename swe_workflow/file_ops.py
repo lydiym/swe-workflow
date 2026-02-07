@@ -7,8 +7,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from deepagents.backends.utils import perform_string_replacement
-
 from .config import settings
 
 if TYPE_CHECKING:
@@ -154,10 +152,11 @@ def build_approval_preview(
     """Collect summary info and diff for HITL approvals."""
     # Use the handler registry to find the appropriate handler for the tool
     from .tool_handlers.registry import registry
+
     handler = registry.get_handler(tool_name)
     if handler:
         return handler.build_approval_preview(args, assistant_id)
-    
+
     # If no specific handler exists, return None
     return None
 
@@ -172,9 +171,7 @@ class FileOpTracker:
         self.active: dict[str | None, FileOperationRecord] = {}
         self.completed: list[FileOperationRecord] = []
 
-    def start_operation(
-        self, tool_name: str, args: dict[str, Any], tool_call_id: str | None
-    ) -> None:
+    def start_operation(self, tool_name: str, args: dict[str, Any], tool_call_id: str | None) -> None:
         if tool_name not in {"read_file", "write_file", "edit_file"}:
             return
         path_str = str(args.get("file_path") or args.get("path") or "")
@@ -190,11 +187,7 @@ class FileOpTracker:
             if self.backend and path_str:
                 try:
                     responses = self.backend.download_files([path_str])
-                    if (
-                        responses
-                        and responses[0].content is not None
-                        and responses[0].error is None
-                    ):
+                    if responses and responses[0].content is not None and responses[0].error is None:
                         record.before_content = responses[0].content.decode("utf-8")
                     else:
                         record.before_content = ""
@@ -221,11 +214,7 @@ class FileOpTracker:
                 if self.backend:
                     try:
                         responses = self.backend.download_files([path_str])
-                        if (
-                            responses
-                            and responses[0].content is not None
-                            and responses[0].error is None
-                        ):
+                        if responses and responses[0].content is not None and responses[0].error is None:
                             record.before_content = responses[0].content.decode("utf-8")
                         else:
                             record.before_content = ""
@@ -253,9 +242,7 @@ class FileOpTracker:
         else:
             content_text = str(content) if content is not None else ""
 
-        if getattr(
-            tool_message, "status", "success"
-        ) != "success" or content_text.lower().startswith("error"):
+        if getattr(tool_message, "status", "success") != "success" or content_text.lower().startswith("error"):
             record.status = "error"
             record.error = content_text
             self._finalize(record)
@@ -298,16 +285,8 @@ class FileOpTracker:
             )
             record.diff = diff
             if diff:
-                additions = sum(
-                    1
-                    for line in diff.splitlines()
-                    if line.startswith("+") and not line.startswith("+++")
-                )
-                deletions = sum(
-                    1
-                    for line in diff.splitlines()
-                    if line.startswith("-") and not line.startswith("---")
-                )
+                additions = sum(1 for line in diff.splitlines() if line.startswith("+") and not line.startswith("+++"))
+                deletions = sum(1 for line in diff.splitlines() if line.startswith("-") and not line.startswith("---"))
                 record.metrics.lines_added = additions
                 record.metrics.lines_removed = deletions
             elif record.tool_name == "write_file" and (record.before_content or "") == "":
@@ -346,11 +325,7 @@ class FileOpTracker:
                 file_path = record.args.get("file_path") or record.args.get("path")
                 if file_path:
                     responses = self.backend.download_files([file_path])
-                    if (
-                        responses
-                        and responses[0].content is not None
-                        and responses[0].error is None
-                    ):
+                    if responses and responses[0].content is not None and responses[0].error is None:
                         record.after_content = responses[0].content.decode("utf-8")
                     else:
                         record.after_content = None
